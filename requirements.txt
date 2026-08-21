@@ -18,3 +18,5 @@ matplotlib
 seaborn
 shap
 jupyter
+
+duckdb>=1.0.0
