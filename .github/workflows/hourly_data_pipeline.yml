@@ -94,6 +94,121 @@ jobs:
           conn.close()
           PY
 
+            # ============================================================
+      # GENERATE FUTURE WEATHER FORECAST
+      # ============================================================
+
+      - name: Generate future weather forecast
+        run: |
+          python -m src.services.weather_forecast_service
+
+      # ============================================================
+      # VERIFY FUTURE WEATHER
+      # ============================================================
+
+      - name: Verify future weather forecast
+        run: |
+          python - <<'PY'
+          import duckdb
+          from datetime import date, timedelta
+
+          db = "database/aqi.duckdb"
+          conn = duckdb.connect(db)
+
+          today = date.today()
+
+          expected_dates = [
+              today + timedelta(days=1),
+              today + timedelta(days=2),
+              today + timedelta(days=3),
+          ]
+
+          rows = conn.execute(
+              """
+              SELECT
+                  COUNT(*),
+                  COUNT(DISTINCT city_id),
+                  COUNT(DISTINCT date),
+                  MIN(date),
+                  MAX(date)
+              FROM weather_forecasts
+              WHERE date >= ?
+                AND date <= ?
+              """,
+              [expected_dates[0], expected_dates[-1]],
+          ).fetchone()
+
+          total_rows = int(rows[0])
+          cities = int(rows[1])
+          dates = int(rows[2])
+          first_date = rows[3]
+          last_date = rows[4]
+
+          print("Future weather rows :", total_rows)
+          print("Cities               :", cities)
+          print("Dates                :", dates)
+          print("First date           :", first_date)
+          print("Last date            :", last_date)
+
+          expected_rows = 12 * 3
+
+          if total_rows != expected_rows:
+              raise RuntimeError(
+                  f"Future weather row count invalid: "
+                  f"expected {expected_rows}, got {total_rows}"
+              )
+
+          if cities != 12:
+              raise RuntimeError(
+                  f"Future weather city count invalid: "
+                  f"expected 12, got {cities}"
+              )
+
+          if dates != 3:
+              raise RuntimeError(
+                  f"Future weather date count invalid: "
+                  f"expected 3, got {dates}"
+              )
+
+          if first_date != expected_dates[0]:
+              raise RuntimeError(
+                  f"Future weather starts on {first_date}, "
+                  f"expected {expected_dates[0]}"
+              )
+
+          if last_date != expected_dates[-1]:
+              raise RuntimeError(
+                  f"Future weather ends on {last_date}, "
+                  f"expected {expected_dates[-1]}"
+              )
+
+          duplicate_rows = conn.execute(
+              """
+              SELECT city_id, date, COUNT(*)
+              FROM weather_forecasts
+              WHERE date >= ?
+                AND date <= ?
+              GROUP BY city_id, date
+              HAVING COUNT(*) > 1
+              """,
+              [expected_dates[0], expected_dates[-1]],
+          ).fetchall()
+
+          if duplicate_rows:
+              raise RuntimeError(
+                  f"Duplicate future weather rows found: "
+                  f"{duplicate_rows}"
+              )
+
+          print("FUTURE WEATHER VERIFICATION: PASSED")
+
+          conn.close()
+          PY
+
+      # ============================================================
+      # GENERATE V9 FORECASTS
+      # ============================================================
+
       - name: Generate V9 forecasts
         run: |
           python -m src.ml.forecast_engine_v9
