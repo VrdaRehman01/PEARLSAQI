@@ -1,0 +1,20 @@
+requests
+python-dotenv
+pandas
+numpy
+scikit-learn
+xgboost
+tensorflow
+hopsworks[python]
+joblib
+huggingface_hub
+
+# Web dashboard (Phase 5)
+streamlit
+flask
+
+# Advanced analytics (Phase 6)
+matplotlib
+seaborn
+shap
+jupyter

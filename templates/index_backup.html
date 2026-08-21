@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AQI Predictor Pakistan</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="#hero" class="navbar-brand">🌫️ AQI Predictor <span>PK</span></a>
+      <div class="navbar-links">
+        <a href="#forecast">Forecast</a>
+        <a href="#whatif">What-If</a>
+        <a href="#trends">Trends</a>
+        <a href="#logs">Model Stats</a>
+        <a href="#health">Health Guide</a>
+        <a href="#about">About</a>
+      </div>
+    </div>
+  </nav>
+
+  <section id="hero" class="hero">
+    <h1>Know tomorrow's air, today.</h1>
+    <p>A 3-day Air Quality Index forecast for Pakistani cities, built on a real, automated ML pipeline &mdash; not a static demo.</p>
+    <a href="#forecast" class="btn-primary">View forecast</a>
+  </section>
+
+  <div class="wrap">
+
+    <section id="forecast" class="section">
+      <h2 class="section-title">City Forecast</h2>
+      <p class="section-subtitle">Live prediction pulled from the current feature store.</p>
+
+      <div class="controls">
+        <select id="city-select">
+          {% for city in cities %}
+            <option value="{{ city }}">{{ city }}</option>
+          {% endfor %}
+        </select>
+        <button id="forecast-btn">Get 3-day forecast</button>
+      </div>
+
+      <div id="current-conditions" class="current-conditions"></div>
+      <div id="result-area"></div>
+
+      <div id="pollutant-panel" class="panel-row"></div>
+    </section>
+
+    <section id="whatif" class="section">
+      <h2 class="section-title">What-If Predictor</h2>
+      <p class="section-subtitle">Enter hypothetical weather conditions and see what the models would forecast &mdash; useful for exploring how temperature, humidity, or wind shift the outlook.</p>
+
+      <form id="whatif-form" class="whatif-form">
+        <div class="form-grid">
+          <label>Month
+            <select name="month" required>
+              {% for m in range(1, 13) %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Day of month
+            <input type="number" name="day" min="1" max="31" value="15" required>
+          </label>
+          <label>Day of week (0=Mon)
+            <input type="number" name="dayofweek" min="0" max="6" value="0" required>
+          </label>
+          <label>Hour
+            <input type="number" name="hour" min="0" max="23" value="12" required>
+          </label>
+          <label>Temperature (&deg;C)
+            <input type="number" name="temperature" step="0.1" value="30" required>
+          </label>
+          <label>Humidity (%)
+            <input type="number" name="humidity" step="0.1" value="50" required>
+          </label>
+          <label>Precipitation (mm)
+            <input type="number" name="precipitation" step="0.1" value="0" required>
+          </label>
+          <label>Wind speed (km/h)
+            <input type="number" name="wind_speed" step="0.1" value="10" required>
+          </label>
+          <label>Recent AQI change rate
+            <input type="number" name="aqi_change_rate" step="0.1" value="0" required>
+          </label>
+          <label>Recent AQI baseline (avg. last week)
+            <input type="number" name="recent_aqi_baseline" step="0.1" value="100" required>
+          </label>
+        </div>
+        <button type="submit" id="whatif-btn">Simulate forecast</button>
+      </form>
+
+      <div id="whatif-result"></div>
+    </section>
+
+    <section id="trends" class="section">
+      <h2 class="section-title">Historical Trends</h2>
+      <p class="section-subtitle">Seasonal and weekly AQI patterns from 4 years of historical data.</p>
+      <div id="trends-result">
+        <div class="state-message">Select a city above and click "Get 3-day forecast" to load trends.</div>
+      </div>
+    </section>
+
+    <section id="logs" class="section">
+      <h2 class="section-title">Model Stats &amp; Pipeline Logs</h2>
+      <p class="section-subtitle">Every trained model currently registered, with its evaluation metrics.</p>
+      <div id="model-stats-result">
+        <div class="state-message">Loading model registry…</div>
+      </div>
+    </section>
+
+    <section id="health" class="section">
+      <h2 class="section-title">Health Impact Guide</h2>
+      <p class="section-subtitle">What each AQI range means and who it affects most.</p>
+
+      <div class="health-grid">
+        <div class="health-card badge-good">
+          <div class="health-range">0&ndash;50 &middot; Good</div>
+          <p>Air quality is satisfactory. Enjoy normal outdoor activities.</p>
+        </div>
+        <div class="health-card badge-moderate">
+          <div class="health-range">51&ndash;100 &middot; Moderate</div>
+          <p>Acceptable air quality. Unusually sensitive individuals should consider reducing prolonged outdoor exertion.</p>
+        </div>
+        <div class="health-card badge-unhealthy_sensitive">
+          <div class="health-range">101&ndash;150 &middot; Unhealthy for Sensitive Groups</div>
+          <p>Children, the elderly, and people with respiratory or heart conditions may experience health effects. General public is less affected.</p>
+        </div>
+        <div class="health-card badge-unhealthy">
+          <div class="health-range">151&ndash;200 &middot; Unhealthy</div>
+          <p>Everyone may begin to experience health effects. Sensitive groups should avoid prolonged outdoor exertion.</p>
+        </div>
+        <div class="health-card badge-very_unhealthy">
+          <div class="health-range">201&ndash;300 &middot; Very Unhealthy</div>
+          <p>Health alert: everyone may experience more serious health effects. Avoid outdoor activity where possible.</p>
+        </div>
+        <div class="health-card badge-hazardous">
+          <div class="health-range">301+ &middot; Hazardous</div>
+          <p>Emergency conditions. The entire population is likely to be affected. Stay indoors and keep activity levels low.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="about" class="section about-section">
+      <h2 class="section-title">About this project</h2>
+      <p>
+        AQI Predictor forecasts Air Quality Index 1, 2, and 3 days ahead for
+        Karachi, Lahore, Islamabad, and Peshawar. All weather and pollutant
+        data comes from Open-Meteo &mdash; no API key required anywhere in
+        the pipeline. Historical training data spans 4 years of hourly
+        readings per city. Four model types &mdash; Random Forest, Ridge
+        Regression, XGBoost, and a TensorFlow neural network &mdash; are
+        trained per forecast horizon, with the best-performing model (by
+        RMSE) served automatically via the Hopsworks Feature Store and
+        Model Registry. Predictions are explained per-request using SHAP,
+        and compared against WHO Air Quality Guidelines.
+      </p>
+    </section>
+
+  </div>
+
+  <footer>
+    Built with Python, scikit-learn, XGBoost, TensorFlow, Hopsworks, Flask &amp; Chart.js
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

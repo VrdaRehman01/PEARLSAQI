@@ -1,0 +1,15 @@
+﻿requests
+python-dotenv
+pandas
+numpy
+scikit-learn
+xgboost
+tensorflow
+joblib
+pyarrow
+duckdb
+flask
+streamlit
+matplotlib
+seaborn
+shap

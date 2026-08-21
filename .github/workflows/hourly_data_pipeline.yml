@@ -1,0 +1,231 @@
+﻿name: PEARLSAQI Hourly Production Pipeline
+
+on:
+  schedule:
+    - cron: "10 * * * *"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pearlsaqi-hourly-pipeline
+  cancel-in-progress: false
+
+jobs:
+
+  hourly-production-pipeline:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ========================================================
+      # 1. CHECKOUT
+      # ========================================================
+
+      - name: Checkout PEARLSAQI
+        uses: actions/checkout@v4
+
+      # ========================================================
+      # 2. PYTHON
+      # ========================================================
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # ========================================================
+      # 3. DEPENDENCIES
+      # ========================================================
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ========================================================
+      # 4. FETCH HOURLY AQI + WEATHER
+      # ========================================================
+
+      - name: Fetch hourly live data
+        run: |
+          python -m src.pipelines.hourly_ingestion_pipeline
+
+      # ========================================================
+      # 5. HOURLY → DAILY
+      # ========================================================
+
+      - name: Synchronize hourly data into daily tables
+        run: |
+          python -m src.pipelines.hourly_to_daily_pipeline
+
+      # ========================================================
+      # 6. VERIFY DAILY DATABASE
+      # ========================================================
+
+      - name: Verify daily database
+        run: |
+          python - <<'PY'
+          import duckdb
+
+          db = "database/aqi.duckdb"
+
+          conn = duckdb.connect(db)
+
+          print("=" * 70)
+          print("PEARLSAQI DAILY DATABASE VERIFICATION")
+          print("=" * 70)
+
+          for table in ["aqi", "weather"]:
+
+              result = conn.execute(
+                  f"""
+                  SELECT
+                      MAX(date) AS latest_date,
+                      COUNT(*) AS rows,
+                      COUNT(DISTINCT city_id) AS cities
+                  FROM {table}
+                  """
+              ).fetchone()
+
+              print()
+              print(table)
+              print("  Latest date :", result[0])
+              print("  Rows        :", result[1])
+              print("  Cities      :", result[2])
+
+              if result[2] != 12:
+                  raise RuntimeError(
+                      f"{table} does not contain all 12 cities."
+                  )
+
+          latest_aqi = conn.execute(
+              "SELECT MAX(date) FROM aqi"
+          ).fetchone()[0]
+
+          latest_weather = conn.execute(
+              "SELECT MAX(date) FROM weather"
+          ).fetchone()[0]
+
+          if latest_aqi != latest_weather:
+              raise RuntimeError(
+                  "AQI and weather latest dates do not match."
+              )
+
+          print()
+          print("Latest AQI date    :", latest_aqi)
+          print("Latest weather date:", latest_weather)
+
+          print()
+          print("DAILY DATABASE VERIFICATION: PASSED")
+
+          conn.close()
+          PY
+
+      # ========================================================
+      # 7. GENERATE V9 FORECAST
+      # ========================================================
+
+      - name: Generate V9 forecasts
+        run: |
+          python -m src.ml.forecast_engine_v9
+
+      # ========================================================
+      # 8. VERIFY FORECAST OUTPUT
+      # ========================================================
+
+      - name: Verify forecast output
+        run: |
+          python - <<'PY'
+          import duckdb
+
+          db = "database/aqi.duckdb"
+
+          conn = duckdb.connect(db)
+
+          print("=" * 70)
+          print("PEARLSAQI FORECAST VERIFICATION")
+          print("=" * 70)
+
+          result = conn.execute(
+              """
+              SELECT
+                  COUNT(*) AS total,
+                  COUNT(DISTINCT city_id) AS cities,
+                  COUNT(DISTINCT horizon) AS horizons,
+                  MIN(forecast_date) AS first_forecast,
+                  MAX(forecast_date) AS last_forecast
+              FROM forecast_predictions
+              """
+          ).fetchone()
+
+          print()
+          print("Forecast rows :", result[0])
+          print("Cities        :", result[1])
+          print("Horizons      :", result[2])
+          print("First date    :", result[3])
+          print("Last date     :", result[4])
+
+          if result[1] != 12:
+              raise RuntimeError(
+                  "Forecast does not contain all 12 cities."
+              )
+
+          if result[2] < 3:
+              raise RuntimeError(
+                  "Forecast does not contain 24/48/72 horizons."
+              )
+
+          print()
+          print("FORECAST VERIFICATION: PASSED")
+
+          conn.close()
+          PY
+
+      # ========================================================
+      # 9. COMMIT UPDATED LIVE STATE
+      # ========================================================
+
+      - name: Commit updated live database and forecasts
+        run: |
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add database/aqi.duckdb
+
+          if [ -f models/forecast/v9/forecast_predictions.csv ]; then
+            git add models/forecast/v9/forecast_predictions.csv
+          fi
+
+          if [ -f models/forecast/v9/forecast_metadata.json ]; then
+            git add models/forecast/v9/forecast_metadata.json
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: update hourly AQI data and forecasts"
+            git push
+          fi
+
+      # ========================================================
+      # 10. FINAL SUCCESS
+      # ========================================================
+
+      - name: Pipeline complete
+        run: |
+          echo "=============================================="
+          echo "PEARLSAQI HOURLY PIPELINE COMPLETE"
+          echo "=============================================="
+          echo "Hourly ingestion       : PASSED"
+          echo "Hourly → daily sync    : PASSED"
+          echo "Daily database         : PASSED"
+          echo "V9 forecast            : PASSED"
+          echo "24h / 48h / 72h        : PASSED"
+          echo "=============================================="

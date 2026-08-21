@@ -1,0 +1,14 @@
+{
+    "project": "PearlsAQI",
+    "generated_at": "2026-08-10T00:00:39.447142",
+    "historical_rows": 13068,
+    "cities": 12,
+    "start_date": "2023-01-08",
+    "end_date": "2025-12-31",
+    "latest_date": "2025-12-31",
+    "latest_average_aqi": 184.17,
+    "latest_highest_city": "Faisalabad",
+    "latest_highest_aqi": 307.0,
+    "latest_lowest_city": "Quetta",
+    "latest_lowest_aqi": 80.0
+}

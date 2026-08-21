@@ -1,0 +1,13 @@
+﻿.venv
+.venv_tf
+venv
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+BACKUPS
+frontend/node_modules
+node_modules
+*.log
+.ipynb_checkpoints

@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>PEARLSAQI — Pakistan Air Quality Intelligence</title>
+
+  <meta
+    name="description"
+    content="PEARLSAQI — production-grade air quality forecasting and environmental intelligence for Pakistan."
+  >
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}"
+  >
+
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"
+  ></script>
+</head>
+
+<body>
+
+<div class="app-shell">
+
+  <!-- =====================================================
+       SIDEBAR
+       ===================================================== -->
+
+  <aside class="sidebar">
+
+    <div class="brand">
+
+      <div class="brand-mark">
+        <div class="brand-mark-core"></div>
+      </div>
+
+      <div>
+        <div class="brand-name">PEARLSAQI</div>
+        <div class="brand-subtitle">
+          ENVIRONMENTAL INTELLIGENCE
+        </div>
+      </div>
+
+    </div>
+
+
+    <nav class="side-nav">
+
+      <a
+        href="#overview"
+        class="nav-item active"
+        data-section="overview"
+      >
+        <span class="nav-icon">◉</span>
+        <span>Overview</span>
+      </a>
+
+      <a
+        href="#forecast"
+        class="nav-item"
+        data-section="forecast"
+      >
+        <span class="nav-icon">⌁</span>
+        <span>Forecast</span>
+      </a>
+
+      <a
+        href="#explainability"
+        class="nav-item"
+        data-section="explainability"
+      >
+        <span class="nav-icon">✦</span>
+        <span>Explainability</span>
+      </a>
+
+      <a
+        href="#analytics"
+        class="nav-item"
+        data-section="analytics"
+      >
+        <span class="nav-icon">▥</span>
+        <span>Analytics</span>
+      </a>
+
+      <a
+        href="#network"
+        class="nav-item"
+        data-section="network"
+      >
+        <span class="nav-icon">⌘</span>
+        <span>City Network</span>
+      </a>
+
+      <a
+        href="#model"
+        class="nav-item"
+        data-section="model"
+      >
+        <span class="nav-icon">◇</span>
+        <span>Model Intelligence</span>
+      </a>
+
+      <a
+        href="#whatif"
+        class="nav-item"
+        data-section="whatif"
+      >
+        <span class="nav-icon">⌗</span>
+        <span>What-If Lab</span>
+      </a>
+
+      <a
+        href="#health"
+        class="nav-item"
+        data-section="health"
+      >
+        <span class="nav-icon">+</span>
+        <span>Health Guide</span>
+      </a>
+
+    </nav>
+
+
+    <div class="sidebar-bottom">
+
+      <div class="system-status">
+
+        <span class="status-dot"></span>
+
+        <div>
+          <strong>Production system</strong>
+          <span>Pipeline operational</span>
+        </div>
+
+      </div>
+
+      <div class="sidebar-footer">
+        <span>PEARLSAQI V4</span>
+        <span>ML PLATFORM</span>
+      </div>
+
+    </div>
+
+  </aside>
+
+
+  <!-- =====================================================
+       MAIN
+       ===================================================== -->
+
+  <main class="main-content">
+
+    <!-- TOP BAR -->
+
+    <header class="topbar">
+
+      <div class="mobile-brand">
+
+        <div class="brand-mark small">
+          <div class="brand-mark-core"></div>
+        </div>
+
+        PEARLSAQI
+
+      </div>
+
+
+      <div class="topbar-right">
+
+        <div class="live-indicator">
+
+          <span class="status-dot"></span>
+
+          LIVE DATA
+
+        </div>
+
+        <div class="last-updated">
+
+          Updated
+          <strong id="last-updated">—</strong>
+
+        </div>
+
+        <button
+          id="refresh-btn"
+          class="icon-button"
+          title="Refresh forecast"
+          aria-label="Refresh forecast"
+        >
+          ↻
+        </button>
+
+      </div>
+
+    </header>
+
+
+    <!-- ===================================================
+         OVERVIEW / HERO
+         =================================================== -->
+
+    <section
+      id="overview"
+      class="page-section hero-section"
+    >
+
+      <div class="hero-copy">
+
+        <div class="eyebrow">
+          <span></span>
+          PAKISTAN AIR QUALITY INTELLIGENCE
+        </div>
+
+        <h1>
+          Know the air.
+          <em>Before it changes.</em>
+        </h1>
+
+        <p>
+          Production-grade AQI forecasting powered by a
+          feature-rich machine learning pipeline, real
+          atmospheric data, SHAP + LIME explainability,
+          and automated model operations.
+        </p>
+
+      </div>
+
+
+      <div class="hero-controls">
+
+        <label for="city-select">
+          SELECT MONITORED CITY
+        </label>
+
+        <div class="city-selector">
+
+          <select id="city-select">
+
+            {% for city in cities %}
+              <option value="{{ city }}">
+                {{ city }}
+              </option>
+            {% endfor %}
+
+          </select>
+
+          <span class="select-arrow">⌄</span>
+
+        </div>
+
+        <button
+          id="forecast-btn"
+          class="primary-button"
+          type="button"
+          onclick="loadForecast(document.getElementById('city-select').value)"
+        >
+          Analyze atmosphere
+          <span>→</span>
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         CURRENT CONDITIONS
+         =================================================== -->
+
+    <section class="page-section">
+
+      <div id="current-conditions">
+
+        <div class="loading-card">
+
+          <span class="loader"></span>
+
+          Loading atmospheric intelligence…
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         FORECAST
+         =================================================== -->
+
+    <section
+      id="forecast"
+      class="page-section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <span class="eyebrow-small">
+            PREDICTIVE HORIZON
+          </span>
+
+          <h2>Three-day forecast</h2>
+
+          <p>
+            Forecast generated by the current production
+            model registry.
+          </p>
+
+        </div>
+
+        <div class="forecast-status">
+
+          <span class="status-dot"></span>
+
+          MODEL ONLINE
+
+        </div>
+
+      </div>
+
+
+      <div
+        id="forecast-cards"
+        class="forecast-cards"
+      >
+
+        <div class="loading-card">
+
+          <span class="loader"></span>
+
+          Waiting for forecast…
+
+        </div>
+
+      </div>
+
+
+      <article class="forecast-chart-card">
+
+        <div class="chart-header">
+
+          <div>
+
+            <span class="eyebrow-small">
+              FORECAST TRAJECTORY
+            </span>
+
+            <h3>Predicted AQI movement</h3>
+
+          </div>
+
+          <div class="chart-legend">
+
+            <span class="legend-line"></span>
+
+            Predicted AQI
+
+          </div>
+
+        </div>
+
+        <div class="chart-container">
+
+          <canvas id="forecast-chart"></canvas>
+
+        </div>
+
+      </article>
+
+    </section>
+
+
+    <!-- ===================================================
+         EXPLAINABILITY
+         =================================================== -->
+
+    <section
+      id="explainability"
+      class="page-section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <span class="eyebrow-small">
+            MODEL TRANSPARENCY
+          </span>
+
+          <h2>Why this prediction?</h2>
+
+          <p>
+            Local feature contributions from the production
+            forecasting model.
+          </p>
+
+        </div>
+
+
+        <div class="explain-tabs">
+
+          <button
+            class="explain-tab active"
+            data-method="shap"
+            type="button"
+          >
+            SHAP
+          </button>
+
+          <button
+            class="explain-tab"
+            data-method="lime"
+            type="button"
+          >
+            LIME
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="explain-grid">
+
+        <article class="explain-main-card">
+
+          <div class="card-heading">
+
+            <div>
+
+              <span class="eyebrow-small">
+                LOCAL FEATURE CONTRIBUTIONS
+              </span>
+
+              <h3>Prediction drivers</h3>
+
+            </div>
+
+            <span
+              id="explanation-method"
+              class="method-badge"
+            >
+              SHAP
+            </span>
+
+          </div>
+
+
+          <div
+            id="explanation-list"
+            class="explanation-list"
+          >
+
+            <div class="empty-state">
+              Generate a forecast to see model
+              explanations.
+            </div>
+
+          </div>
+
+        </article>
+
+
+        <article class="explain-side-card">
+
+          <div class="card-heading">
+
+            <div>
+
+              <span class="eyebrow-small">
+                INTERPRETATION
+              </span>
+
+              <h3>Model reasoning</h3>
+
+            </div>
+
+          </div>
+
+
+          <div class="interpretation-score">
+
+            <div class="interpretation-ring">
+              <span>AI</span>
+            </div>
+
+            <div>
+
+              <strong>
+                Explainable prediction
+              </strong>
+
+              <span>
+                Feature-level attribution
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <p
+            id="interpretation-text"
+            class="interpretation-text"
+          >
+            Generate a prediction to see how the
+            model arrived at its forecast.
+          </p>
+
+        </article>
+
+      </div>
+
+
+      <div class="explain-bottom-grid">
+
+        <article class="insight-card">
+
+          <span class="eyebrow-small">
+            PRIMARY DRIVER
+          </span>
+
+          <div
+            id="primary-driver"
+            class="primary-driver"
+          >
+            —
+          </div>
+
+          <p>
+            Strongest locally contributing feature.
+          </p>
+
+        </article>
+
+
+        <article class="insight-card">
+
+          <span class="eyebrow-small">
+            EXPLAINABILITY STACK
+          </span>
+
+          <div class="method-row">
+
+            <div class="method-icon">
+              S
+            </div>
+
+            <div>
+
+              <strong>
+                SHAP
+              </strong>
+
+              <span>
+                Global + local attribution
+              </span>
+
+            </div>
+
+            <span class="method-check">
+              ✓
+            </span>
+
+          </div>
+
+
+          <div class="method-row">
+
+            <div class="method-icon">
+              L
+            </div>
+
+            <div>
+
+              <strong>
+                LIME
+              </strong>
+
+              <span>
+                Local surrogate explanations
+              </span>
+
+            </div>
+
+            <span class="method-check">
+              ✓
+            </span>
+
+          </div>
+
+        </article>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         ANALYTICS
+         =================================================== -->
+
+    <section
+      id="analytics"
+      class="page-section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <span class="eyebrow-small">
+            ATMOSPHERIC ANALYTICS
+          </span>
+
+          <h2>Pollutants & patterns</h2>
+
+          <p>
+            Current pollutant composition and historical
+            behaviour.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="analytics-grid">
+
+        <article class="pollutant-card">
+
+          <div class="card-heading">
+
+            <div>
+
+              <span class="eyebrow-small">
+                LIVE COMPOSITION
+              </span>
+
+              <h3>Pollutant profile</h3>
+
+            </div>
+
+          </div>
+
+
+          <div class="pollutant-chart-wrap">
+
+            <canvas id="pollutant-chart"></canvas>
+
+          </div>
+
+
+          <div
+            id="pollutant-values"
+            class="pollutant-values"
+          ></div>
+
+        </article>
+
+
+        <article class="who-card">
+
+          <div class="card-heading">
+
+            <div>
+
+              <span class="eyebrow-small">
+                HEALTH BENCHMARK
+              </span>
+
+              <h3>WHO guideline comparison</h3>
+
+            </div>
+
+          </div>
+
+
+          <div
+            id="who-rows"
+            class="who-rows"
+          >
+
+            <div class="empty-state">
+              Loading guideline comparison…
+            </div>
+
+          </div>
+
+        </article>
+
+      </div>
+
+
+      <div
+        id="trend-container"
+        class="trend-container"
+      >
+
+        <div class="trend-grid">
+
+          <article class="trend-card">
+
+            <div class="card-heading">
+
+              <div>
+
+                <span class="eyebrow-small">
+                  SEASONAL PATTERN
+                </span>
+
+                <h3>Monthly AQI</h3>
+
+              </div>
+
+            </div>
+
+            <canvas id="monthly-trend-chart"></canvas>
+
+          </article>
+
+
+          <article class="trend-card">
+
+            <div class="card-heading">
+
+              <div>
+
+                <span class="eyebrow-small">
+                  WEEKLY PATTERN
+                </span>
+
+                <h3>Day-of-week AQI</h3>
+
+              </div>
+
+            </div>
+
+            <canvas id="weekday-trend-chart"></canvas>
+
+          </article>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         CITY NETWORK
+         =================================================== -->
+
+    <section
+      id="network"
+      class="page-section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <span class="eyebrow-small">
+            NATIONAL MONITORING NETWORK
+          </span>
+
+          <h2>Pakistan city network</h2>
+
+          <p>
+            Switch between monitored locations and inspect
+            their current forecast.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="city-network">
+
+        {% for city in cities %}
+
+        <button
+          type="button"
+          class="city-network-card"
+          data-city="{{ city }}"
+        >
+
+          <div class="city-network-top">
+
+            <span class="city-network-name">
+              {{ city }}
+            </span>
+
+            <span class="city-arrow">
+              →
+            </span>
+
+          </div>
+
+          <div
+            class="city-network-aqi"
+            data-city-aqi="{{ city }}"
+          >
+            —
+          </div>
+
+          <div class="city-network-bottom">
+
+            <span class="status-dot"></span>
+
+            Live monitoring
+
+          </div>
+
+        </button>
+
+        {% endfor %}
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         MODEL INTELLIGENCE
+         =================================================== -->
+
+    <section
+      id="model"
+      class="page-section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <span class="eyebrow-small">
+            MACHINE LEARNING OPERATIONS
+          </span>
+
+          <h2>Model intelligence</h2>
+
+          <p>
+            Registered production models and evaluation
+            metrics.
+          </p>
+
+        </div>
+
+        <span class="production-badge">
+          PRODUCTION REGISTRY
+        </span>
+
+      </div>
+
+
+      <div class="model-metrics">
+
+        <article class="metric-card">
+
+          <span>PRODUCTION MODELS</span>
+
+          <strong id="metric-model-count">
+            —
+          </strong>
+
+          <small>
+            Registered across horizons
+          </small>
+
+        </article>
+
+
+        <article class="metric-card">
+
+          <span>FEATURE SPACE</span>
+
+          <strong>
+            108
+          </strong>
+
+          <small>
+            Final selected features
+          </small>
+
+        </article>
+
+
+        <article class="metric-card">
+
+          <span>EXPLAINABILITY</span>
+
+          <strong>
+            2
+          </strong>
+
+          <small>
+            SHAP + LIME
+          </small>
+
+        </article>
+
+
+        <article class="metric-card">
+
+          <span>PIPELINE</span>
+
+          <strong>
+            LIVE
+          </strong>
+
+          <small>
+            Automated operations
+          </small>
+
+        </article>
+
+      </div>
+
+
+      <article class="model-panel">
+
+        <div class="card-heading">
+
+          <div>
+
+            <span class="eyebrow-small">
+              MODEL REGISTRY
+            </span>
+
+            <h3>Production performance</h3>
+
+          </div>
+
+        </div>
+
+
+        <div id="model-stats-container">
+
+          <div class="loading-card">
+
+            <span class="loader"></span>
+
+            Reading production model registry…
+
+          </div>
+
+        </div>
+
+      </article>
+
+    </section>
+
+
+    <!-- ===================================================
+         WHAT IF
+         =================================================== -->
+
+    <section
+      id="whatif"
+      class="page-section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <span class="eyebrow-small">
+            SCENARIO LAB
+          </span>
+
+          <h2>What-if predictor</h2>
+
+          <p>
+            Explore how hypothetical atmospheric conditions
+            affect the model's forecast.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="whatif-layout">
+
+        <article class="whatif-panel">
+
+          <form id="whatif-form">
+
+            <div class="form-grid">
+
+              <label>
+                Month
+                <select name="month" required>
+                  {% for m in range(1, 13) %}
+                    <option value="{{ m }}">
+                      {{ m }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </label>
+
+
+              <label>
+                Day
+                <input
+                  type="number"
+                  name="day"
+                  min="1"
+                  max="31"
+                  value="15"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Day of week
+                <input
+                  type="number"
+                  name="dayofweek"
+                  min="0"
+                  max="6"
+                  value="0"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Hour
+                <input
+                  type="number"
+                  name="hour"
+                  min="0"
+                  max="23"
+                  value="12"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Temperature (°C)
+                <input
+                  type="number"
+                  name="temperature"
+                  step="0.1"
+                  value="30"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Humidity (%)
+                <input
+                  type="number"
+                  name="humidity"
+                  step="0.1"
+                  value="50"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Precipitation (mm)
+                <input
+                  type="number"
+                  name="precipitation"
+                  step="0.1"
+                  value="0"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Wind speed (km/h)
+                <input
+                  type="number"
+                  name="wind_speed"
+                  step="0.1"
+                  value="10"
+                  required
+                >
+              </label>
+
+
+              <label>
+                AQI change rate
+                <input
+                  type="number"
+                  name="aqi_change_rate"
+                  step="0.1"
+                  value="0"
+                  required
+                >
+              </label>
+
+
+              <label>
+                Recent AQI baseline
+                <input
+                  type="number"
+                  name="recent_aqi_baseline"
+                  step="0.1"
+                  value="100"
+                  required
+                >
+              </label>
+
+            </div>
+
+
+            <button
+              type="submit"
+              class="primary-button"
+            >
+              Run simulation
+              <span>→</span>
+            </button>
+
+          </form>
+
+        </article>
+
+
+        <article class="whatif-results">
+
+          <div
+            id="whatif-results"
+            class="scenario-placeholder"
+          >
+
+            <div class="scenario-icon">
+              ⌗
+            </div>
+
+            <strong>
+              Scenario engine ready
+            </strong>
+
+            <span>
+              Adjust the atmospheric variables and
+              run a simulation to see the resulting
+              3-day forecast.
+            </span>
+
+          </div>
+
+        </article>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         HEALTH
+         =================================================== -->
+
+    <section
+      id="health"
+      class="page-section"
+    >
+
+      <div class="section-header">
+
+        <div>
+
+          <span class="eyebrow-small">
+            PUBLIC HEALTH CONTEXT
+          </span>
+
+          <h2>AQI health guide</h2>
+
+          <p>
+            Understand what each AQI range means for
+            everyday activity.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="health-grid">
+
+        <article class="health-item good">
+
+          <span>0 — 50</span>
+
+          <strong>Good</strong>
+
+          <p>
+            Air quality is satisfactory. Normal
+            outdoor activities are appropriate.
+          </p>
+
+        </article>
+
+
+        <article class="health-item moderate">
+
+          <span>51 — 100</span>
+
+          <strong>Moderate</strong>
+
+          <p>
+            Acceptable conditions, with possible
+            concern for unusually sensitive people.
+          </p>
+
+        </article>
+
+
+        <article class="health-item sensitive">
+
+          <span>101 — 150</span>
+
+          <strong>Sensitive groups</strong>
+
+          <p>
+            Sensitive groups may experience health
+            effects.
+          </p>
+
+        </article>
+
+
+        <article class="health-item unhealthy">
+
+          <span>151 — 200</span>
+
+          <strong>Unhealthy</strong>
+
+          <p>
+            Everyone may begin experiencing health
+            effects.
+          </p>
+
+        </article>
+
+
+        <article class="health-item very-unhealthy">
+
+          <span>201 — 300</span>
+
+          <strong>Very unhealthy</strong>
+
+          <p>
+            Health alert conditions. Reduce prolonged
+            outdoor exposure.
+          </p>
+
+        </article>
+
+
+        <article class="health-item hazardous">
+
+          <span>301+</span>
+
+          <strong>Hazardous</strong>
+
+          <p>
+            Emergency conditions. Avoid outdoor
+            exposure where possible.
+          </p>
+
+        </article>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         FOOTER
+         =================================================== -->
+
+    <footer class="app-footer">
+
+      <div>
+
+        <strong>PEARLSAQI</strong>
+
+        <span>
+          Pakistan Environmental Air Quality Intelligence
+        </span>
+
+      </div>
+
+
+      <div class="footer-status">
+
+        <span class="status-dot"></span>
+
+        Production pipeline operational
+
+      </div>
+
+    </footer>
+
+  </main>
+
+</div>
+
+
+<script
+  src="{{ url_for('static', filename='js/app.js') }}"
+></script>
+
+</body>
+</html>
