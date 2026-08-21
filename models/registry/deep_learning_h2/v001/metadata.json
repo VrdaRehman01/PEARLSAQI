@@ -1,0 +1,17 @@
+{
+  "name": "deep_learning",
+  "model_name": "deep_learning_h2",
+  "horizon": 2,
+  "version": 1,
+  "version_name": "v001",
+  "rmse": 27.62351626753749,
+  "mae": 21.495990822262783,
+  "r2": 0.5586536962283719,
+  "model_path": "C:\\Users\\warda\\Downloads\\aqi-predictor-v4\\models\\registry\\deep_learning_h2\\v001\\model.keras",
+  "scaler_path": "C:\\Users\\warda\\Downloads\\aqi-predictor-v4\\models\\registry\\deep_learning_h2\\v001\\scaler.pkl",
+  "training_rows": 12364,
+  "feature_count": 107,
+  "training_time_seconds": 37.72526574134827,
+  "created_at": "2026-08-17T13:23:51.475079",
+  "status": "registered"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "xgboost",
+  "model_name": "xgboost_h1",
+  "horizon": 1,
+  "version": 7,
+  "version_name": "v007",
+  "rmse": 14.379474258005216,
+  "mae": 9.02976086063472,
+  "r2": 0.9013127340131636,
+  "model_path": "models/registry/xgboost_h1/v007/xgboost_h1_candidate.pkl",
+  "scaler_path": null,
+  "training_rows": 8412,
+  "feature_count": 107,
+  "training_time_seconds": 16.874778509140015,
+  "created_at": "2026-08-18T18:20:50.271340",
+  "status": "registered"
+}

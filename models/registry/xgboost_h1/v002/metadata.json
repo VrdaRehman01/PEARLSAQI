@@ -1,0 +1,18 @@
+{
+  "name": "xgboost",
+  "model_name": "xgboost_h1",
+  "horizon": 1,
+  "version": 2,
+  "version_name": "v002",
+  "rmse": 20.1423,
+  "mae": 13.3627,
+  "r2": 0.8231,
+  "model_path": "C:\\Users\\warda\\Downloads\\aqi-predictor-v4\\models\\registry\\xgboost_h1\\v002\\xgboost_aqi_model.json",
+  "scaler_path": null,
+  "training_rows": 8412,
+  "feature_count": 107,
+  "training_time_seconds": null,
+  "created_at": "2026-08-17T20:46:12.203103",
+  "status": "archived",
+  "promoted_at": "2026-08-17T21:11:39.108649"
+}

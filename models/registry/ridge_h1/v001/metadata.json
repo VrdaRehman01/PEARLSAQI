@@ -1,0 +1,17 @@
+{
+  "name": "ridge",
+  "model_name": "ridge_h1",
+  "horizon": 1,
+  "version": 1,
+  "version_name": "v001",
+  "rmse": 14.83443735646558,
+  "mae": 11.309680101691537,
+  "r2": 0.8727212590812754,
+  "model_path": "C:\\Users\\warda\\Downloads\\aqi-predictor-v4\\models\\registry\\ridge_h1\\v001\\model.pkl",
+  "scaler_path": null,
+  "training_rows": 12364,
+  "feature_count": 107,
+  "training_time_seconds": 0.2553222179412842,
+  "created_at": "2026-08-17T13:14:27.426009",
+  "status": "registered"
+}

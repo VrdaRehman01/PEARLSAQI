@@ -142,3 +142,8 @@ docker-compose.before-*.yml
 
 # Analysis artifacts
 analytics/*.parquet
+
+# Large legacy model artifacts
+models/registry/random_forest_h*/
+models/registry/deep_learning_h*/
+models/registry/ridge_h*/
