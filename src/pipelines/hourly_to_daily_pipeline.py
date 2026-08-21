@@ -1,16 +1,9 @@
-﻿import os
+﻿from pathlib import Path
 import duckdb
 
 
-DB_PATH = os.path.abspath(
-    os.path.join(
-        os.path.dirname(__file__),
-        "..",
-        "..",
-        "database",
-        "aqi.duckdb",
-    )
-)
+BASE_DIR = Path(__file__).resolve().parents[2]
+DB_PATH = BASE_DIR / "database" / "aqi.duckdb"
 
 
 def main():
@@ -22,13 +15,13 @@ def main():
     print()
     print("Database:", DB_PATH)
 
-    conn = duckdb.connect(DB_PATH)
+    conn = duckdb.connect(str(DB_PATH))
 
     try:
 
-        # --------------------------------------------------------
-        # 1. Verify required tables
-        # --------------------------------------------------------
+        # ============================================================
+        # 1. REQUIRED TABLES
+        # ============================================================
 
         required_tables = [
             "aqi",
@@ -37,17 +30,16 @@ def main():
             "weather_hourly",
         ]
 
-        existing_tables = set(
-            conn.execute(
+        existing_tables = {
+            row[0]
+            for row in conn.execute(
                 """
                 SELECT table_name
                 FROM information_schema.tables
                 WHERE table_schema = 'main'
                 """
-            )
-            .fetchdf()["table_name"]
-            .tolist()
-        )
+            ).fetchall()
+        }
 
         missing = [
             table
@@ -57,46 +49,45 @@ def main():
 
         if missing:
             raise RuntimeError(
-                "Missing required tables: "
-                + ", ".join(missing)
+                "Missing required tables: " + ", ".join(missing)
             )
 
-        # --------------------------------------------------------
-        # 2. Determine completed hourly dates
-        # --------------------------------------------------------
+        # ============================================================
+        # 2. HOURLY COVERAGE
+        # ============================================================
 
-        hourly_dates = conn.execute(
+        hourly_range = conn.execute(
             """
-            SELECT DISTINCT
-                CAST(timestamp AS DATE) AS date
+            SELECT
+                MIN(CAST(timestamp AS DATE)),
+                MAX(CAST(timestamp AS DATE))
             FROM aqi_hourly
-            ORDER BY date
             """
-        ).fetchdf()
+        ).fetchone()
 
-        if hourly_dates.empty:
+        min_date, max_date = hourly_range
+
+        if min_date is None:
             print()
             print("No hourly AQI data found.")
             return
-
-        min_date = hourly_dates["date"].min()
-        max_date = hourly_dates["date"].max()
 
         print()
         print("Hourly AQI coverage:")
         print("  From:", min_date)
         print("  To  :", max_date)
 
-        # --------------------------------------------------------
-        # 3. Aggregate hourly AQI → daily AQI
-        # --------------------------------------------------------
+        # ============================================================
+        # 3. DAILY AQI TEMP TABLE
+        # ============================================================
 
-        daily_aqi = conn.execute(
+        conn.execute(
             """
+            CREATE OR REPLACE TEMP TABLE daily_aqi_temp AS
+
             SELECT
                 city_id,
                 CAST(timestamp AS DATE) AS date,
-
                 AVG(aqi)  AS aqi,
                 AVG(pm25) AS pm25,
                 AVG(pm10) AS pm10,
@@ -111,18 +102,19 @@ def main():
                 city_id,
                 CAST(timestamp AS DATE)
             """
-        ).fetchdf()
+        )
 
-        # --------------------------------------------------------
-        # 4. Aggregate hourly weather → daily weather
-        # --------------------------------------------------------
+        # ============================================================
+        # 4. DAILY WEATHER TEMP TABLE
+        # ============================================================
 
-        daily_weather = conn.execute(
+        conn.execute(
             """
+            CREATE OR REPLACE TEMP TABLE daily_weather_temp AS
+
             SELECT
                 city_id,
                 CAST(timestamp AS DATE) AS date,
-
                 AVG(temperature)       AS temperature,
                 AVG(relative_humidity) AS humidity,
                 SUM(precipitation)     AS precipitation,
@@ -134,132 +126,84 @@ def main():
                 city_id,
                 CAST(timestamp AS DATE)
             """
-        ).fetchdf()
+        )
+
+        daily_aqi_count = conn.execute(
+            "SELECT COUNT(*) FROM daily_aqi_temp"
+        ).fetchone()[0]
+
+        daily_weather_count = conn.execute(
+            "SELECT COUNT(*) FROM daily_weather_temp"
+        ).fetchone()[0]
 
         print()
-        print("Daily AQI aggregates    :", len(daily_aqi))
-        print("Daily weather aggregates:", len(daily_weather))
+        print("Daily AQI aggregates    :", daily_aqi_count)
+        print("Daily weather aggregates:", daily_weather_count)
 
-        # --------------------------------------------------------
-        # 5. Only use dates that have complete city coverage
-        # --------------------------------------------------------
-
-        complete_aqi_dates = conn.execute(
-            """
-            SELECT
-                CAST(timestamp AS DATE) AS date
-            FROM aqi_hourly
-            GROUP BY CAST(timestamp AS DATE)
-            HAVING COUNT(DISTINCT city_id) = 12
-            ORDER BY date
-            """
-        ).fetchdf()
-
-        complete_weather_dates = conn.execute(
-            """
-            SELECT
-                CAST(timestamp AS DATE) AS date
-            FROM weather_hourly
-            GROUP BY CAST(timestamp AS DATE)
-            HAVING COUNT(DISTINCT city_id) = 12
-            ORDER BY date
-            """
-        ).fetchdf()
-
-        complete_dates = set(
-            complete_aqi_dates["date"].tolist()
-        ).intersection(
-            set(
-                complete_weather_dates["date"].tolist()
-            )
-        )
-
-        print()
-        print(
-            "Complete 12-city dates:",
-            len(complete_dates),
-        )
-
-        if not complete_dates:
-            print()
-            print(
-                "No dates have complete "
-                "12-city coverage."
-            )
-            return
-
-        # --------------------------------------------------------
-        # 6. Create temporary daily tables
-        # --------------------------------------------------------
-
-        conn.register(
-            "daily_aqi_df",
-            daily_aqi,
-        )
-
-        conn.register(
-            "daily_weather_df",
-            daily_weather,
-        )
+        # ============================================================
+        # 5. KEEP ONLY COMPLETE 12-CITY DATES
+        # ============================================================
 
         conn.execute(
             """
-            CREATE OR REPLACE TEMP TABLE
-            daily_aqi_temp AS
+            CREATE OR REPLACE TEMP TABLE complete_dates AS
 
-            SELECT *
-            FROM daily_aqi_df
-            WHERE date IN (
-                SELECT *
-                FROM UNNEST(?)
-            )
-            """,
-            [list(complete_dates)],
-        )
+            SELECT a.date
 
-        conn.execute(
+            FROM (
+                SELECT
+                    CAST(timestamp AS DATE) AS date
+                FROM aqi_hourly
+                GROUP BY CAST(timestamp AS DATE)
+                HAVING COUNT(DISTINCT city_id) = 12
+            ) a
+
+            INNER JOIN (
+                SELECT
+                    CAST(timestamp AS DATE) AS date
+                FROM weather_hourly
+                GROUP BY CAST(timestamp AS DATE)
+                HAVING COUNT(DISTINCT city_id) = 12
+            ) w
+
+            ON a.date = w.date
             """
-            CREATE OR REPLACE TEMP TABLE
-            daily_weather_temp AS
-
-            SELECT *
-            FROM daily_weather_df
-            WHERE date IN (
-                SELECT *
-                FROM UNNEST(?)
-            )
-            """,
-            [list(complete_dates)],
         )
 
-        # --------------------------------------------------------
-        # 7. Count rows before synchronization
-        # --------------------------------------------------------
+        complete_count = conn.execute(
+            "SELECT COUNT(*) FROM complete_dates"
+        ).fetchone()[0]
+
+        print()
+        print("Complete 12-city dates:", complete_count)
+
+        if complete_count == 0:
+            raise RuntimeError(
+                "No dates have complete 12-city AQI + weather coverage."
+            )
+
+        # ============================================================
+        # 6. COUNT BEFORE
+        # ============================================================
 
         before_aqi = conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM aqi
-            """
+            "SELECT COUNT(*) FROM aqi"
         ).fetchone()[0]
 
         before_weather = conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM weather
-            """
+            "SELECT COUNT(*) FROM weather"
         ).fetchone()[0]
 
-        # --------------------------------------------------------
-        # 8. Upsert daily AQI
-        # --------------------------------------------------------
+        # ============================================================
+        # 7. REBUILD DAILY AQI FOR COMPLETE DATES
+        # ============================================================
 
         conn.execute(
             """
             DELETE FROM aqi
             WHERE date IN (
-                SELECT DISTINCT date
-                FROM daily_aqi_temp
+                SELECT date
+                FROM complete_dates
             )
             """
         )
@@ -280,31 +224,34 @@ def main():
             )
 
             SELECT
-                city_id,
-                date,
-                aqi,
-                pm25,
-                pm10,
-                no2,
-                so2,
-                co,
-                o3,
+                d.city_id,
+                d.date,
+                d.aqi,
+                d.pm25,
+                d.pm10,
+                d.no2,
+                d.so2,
+                d.co,
+                d.o3,
                 'Open-Meteo-Hourly-Aggregated'
 
-            FROM daily_aqi_temp
+            FROM daily_aqi_temp d
+
+            INNER JOIN complete_dates c
+                ON d.date = c.date
             """
         )
 
-        # --------------------------------------------------------
-        # 9. Upsert daily weather
-        # --------------------------------------------------------
+        # ============================================================
+        # 8. REBUILD DAILY WEATHER FOR COMPLETE DATES
+        # ============================================================
 
         conn.execute(
             """
             DELETE FROM weather
             WHERE date IN (
-                SELECT DISTINCT date
-                FROM daily_weather_temp
+                SELECT date
+                FROM complete_dates
             )
             """
         )
@@ -321,48 +268,71 @@ def main():
             )
 
             SELECT
-                city_id,
-                date,
-                temperature,
-                humidity,
-                precipitation,
-                windspeed
+                d.city_id,
+                d.date,
+                d.temperature,
+                d.humidity,
+                d.precipitation,
+                d.windspeed
 
-            FROM daily_weather_temp
+            FROM daily_weather_temp d
+
+            INNER JOIN complete_dates c
+                ON d.date = c.date
             """
         )
 
-        # --------------------------------------------------------
-        # 10. Verify final coverage
-        # --------------------------------------------------------
+        # ============================================================
+        # 9. FINAL COUNTS
+        # ============================================================
 
         after_aqi = conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM aqi
-            """
+            "SELECT COUNT(*) FROM aqi"
         ).fetchone()[0]
 
         after_weather = conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM weather
-            """
+            "SELECT COUNT(*) FROM weather"
         ).fetchone()[0]
 
         latest_aqi = conn.execute(
-            """
-            SELECT MAX(date)
-            FROM aqi
-            """
+            "SELECT MAX(date) FROM aqi"
         ).fetchone()[0]
 
         latest_weather = conn.execute(
-            """
-            SELECT MAX(date)
-            FROM weather
-            """
+            "SELECT MAX(date) FROM weather"
         ).fetchone()[0]
+
+        # ============================================================
+        # 10. LATEST COVERAGE
+        # ============================================================
+
+        aqi_validation = conn.execute(
+            """
+            SELECT
+                date,
+                COUNT(DISTINCT city_id),
+                COUNT(*)
+            FROM aqi
+            WHERE date = (SELECT MAX(date) FROM aqi)
+            GROUP BY date
+            """
+        ).fetchone()
+
+        weather_validation = conn.execute(
+            """
+            SELECT
+                date,
+                COUNT(DISTINCT city_id),
+                COUNT(*)
+            FROM weather
+            WHERE date = (SELECT MAX(date) FROM weather)
+            GROUP BY date
+            """
+        ).fetchone()
+
+        # ============================================================
+        # 11. DISPLAY
+        # ============================================================
 
         print()
         print("=" * 70)
@@ -370,119 +340,60 @@ def main():
         print("=" * 70)
 
         print()
-        print(
-            "AQI rows before    :", before_aqi
-        )
-        print(
-            "AQI rows after     :", after_aqi
-        )
-        print(
-            "Weather rows before:", before_weather
-        )
-        print(
-            "Weather rows after :", after_weather
-        )
+        print("AQI rows before    :", before_aqi)
+        print("AQI rows after     :", after_aqi)
+        print("Weather rows before:", before_weather)
+        print("Weather rows after :", after_weather)
 
         print()
-        print(
-            "Latest AQI date    :",
-            latest_aqi,
-        )
-        print(
-            "Latest weather date:",
-            latest_weather,
-        )
-
-        # --------------------------------------------------------
-        # 11. Final city coverage validation
-        # --------------------------------------------------------
-
-        validation = conn.execute(
-            """
-            SELECT
-                date,
-                COUNT(DISTINCT city_id) AS cities,
-                COUNT(*) AS rows
-            FROM aqi
-            WHERE date = (
-                SELECT MAX(date)
-                FROM aqi
-            )
-            GROUP BY date
-            """
-        ).fetchdf()
+        print("Latest AQI date    :", latest_aqi)
+        print("Latest weather date:", latest_weather)
 
         print()
         print("=" * 70)
         print("LATEST AQI COVERAGE")
         print("=" * 70)
 
-        print(
-            validation.to_string(
-                index=False
-            )
-        )
-
-        validation_weather = conn.execute(
-            """
-            SELECT
-                date,
-                COUNT(DISTINCT city_id) AS cities,
-                COUNT(*) AS rows
-            FROM weather
-            WHERE date = (
-                SELECT MAX(date)
-                FROM weather
-            )
-            GROUP BY date
-            """
-        ).fetchdf()
+        print("date  :", aqi_validation[0])
+        print("cities:", aqi_validation[1])
+        print("rows  :", aqi_validation[2])
 
         print()
         print("=" * 70)
         print("LATEST WEATHER COVERAGE")
         print("=" * 70)
 
-        print(
-            validation_weather.to_string(
-                index=False
-            )
-        )
+        print("date  :", weather_validation[0])
+        print("cities:", weather_validation[1])
+        print("rows  :", weather_validation[2])
 
-        # --------------------------------------------------------
-        # 12. Safety validation
-        # --------------------------------------------------------
+        # ============================================================
+        # 12. SAFETY VALIDATION
+        # ============================================================
 
         if latest_aqi != latest_weather:
             raise RuntimeError(
-                "AQI and weather latest dates "
-                "do not match."
+                "AQI and weather latest dates do not match."
             )
 
-        if validation.empty:
+        if aqi_validation[1] != 12:
             raise RuntimeError(
-                "AQI validation returned no rows."
+                "Latest AQI date does not contain all 12 cities."
             )
 
-        if int(
-            validation.iloc[0]["cities"]
-        ) != 12:
+        if weather_validation[1] != 12:
             raise RuntimeError(
-                "Latest AQI date does not contain "
-                "all 12 cities."
+                "Latest weather date does not contain all 12 cities."
             )
 
-        if validation_weather.empty:
+        if aqi_validation[2] != 12:
             raise RuntimeError(
-                "Weather validation returned no rows."
+                "Latest AQI date does not contain exactly 12 rows."
             )
 
-        if int(
-            validation_weather.iloc[0]["cities"]
-        ) != 12:
+        if weather_validation[2] != 12:
             raise RuntimeError(
-                "Latest weather date does not "
-                "contain all 12 cities."
+                "Latest weather date does not contain exactly 12 rows."
             )
 
         print()
@@ -495,12 +406,8 @@ def main():
         print("Weather latest date:", latest_weather)
         print("Cities             : 12")
         print()
-        print(
-            "Existing model was NOT retrained."
-        )
-        print(
-            "Production model was NOT modified."
-        )
+        print("Existing model was NOT retrained.")
+        print("Production model was NOT modified.")
 
     finally:
         conn.close()
