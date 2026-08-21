@@ -1,6 +1,10 @@
 ﻿name: PEARLSAQI Hourly Production Pipeline
 
 on:
+  push:
+    branches:
+      - main
+
   schedule:
     - cron: "10 * * * *"
 
