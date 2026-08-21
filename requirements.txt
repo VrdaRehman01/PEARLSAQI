@@ -1,7 +1,7 @@
+﻿numpy==1.26.4
+pandas==2.2.3
 requests
 python-dotenv
-pandas
-numpy
 scikit-learn
 xgboost
 tensorflow
@@ -21,4 +21,3 @@ jupyter
 
 duckdb>=1.0.0
 
-pandas>=2.0.0
