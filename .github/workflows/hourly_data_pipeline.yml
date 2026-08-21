@@ -1,0 +1,166 @@
+name: Hourly AQI Data Pipeline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hourly-aqi-data-pipeline
+  cancel-in-progress: false
+
+jobs:
+  hourly-pipeline:
+    name: Hourly AQI Production Pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Verify dependencies
+        run: |
+          python -c "import duckdb; print('DuckDB:', duckdb.__version__)"
+          python -c "import pandas; print('Pandas:', pandas.__version__)"
+
+      - name: Fetch hourly live data
+        run: |
+          python -m src.pipelines.hourly_ingestion_pipeline
+
+      - name: Synchronize hourly data into daily tables
+        run: |
+          python -m src.pipelines.hourly_to_daily_pipeline
+
+      - name: Verify daily database
+        run: |
+          python - <<'PY'
+          import duckdb
+
+          db = "database/aqi.duckdb"
+          conn = duckdb.connect(db)
+
+          for table in ["aqi", "weather"]:
+              latest_date, rows, cities = conn.execute(
+                  f"""
+                  SELECT
+                      MAX(date),
+                      COUNT(*),
+                      COUNT(DISTINCT city_id)
+                  FROM {table}
+                  """
+              ).fetchone()
+
+              print(f"{table}:")
+              print(f"  Latest date: {latest_date}")
+              print(f"  Rows: {rows}")
+              print(f"  Cities: {cities}")
+
+              if cities != 12:
+                  raise RuntimeError(
+                      f"{table} does not contain all 12 cities."
+                  )
+
+          aqi_date = conn.execute(
+              "SELECT MAX(date) FROM aqi"
+          ).fetchone()[0]
+
+          weather_date = conn.execute(
+              "SELECT MAX(date) FROM weather"
+          ).fetchone()[0]
+
+          if aqi_date != weather_date:
+              raise RuntimeError(
+                  f"AQI/weather dates do not match: "
+                  f"{aqi_date} vs {weather_date}"
+              )
+
+          print("DAILY DATABASE VERIFICATION: PASSED")
+
+          conn.close()
+          PY
+
+      - name: Generate V9 forecasts
+        run: |
+          python -m src.ml.forecast_engine_v9
+
+      - name: Verify forecast output
+        run: |
+          python - <<'PY'
+          import duckdb
+
+          db = "database/aqi.duckdb"
+          conn = duckdb.connect(db)
+
+          total, cities, horizons, first_date, last_date = conn.execute(
+              """
+              SELECT
+                  COUNT(*),
+                  COUNT(DISTINCT city_id),
+                  COUNT(DISTINCT horizon),
+                  MIN(forecast_date),
+                  MAX(forecast_date)
+              FROM forecast_predictions
+              """
+          ).fetchone()
+
+          print("Forecast rows :", total)
+          print("Cities        :", cities)
+          print("Horizons      :", horizons)
+          print("First date    :", first_date)
+          print("Last date     :", last_date)
+
+          if cities != 12:
+              raise RuntimeError(
+                  "Forecast does not contain all 12 cities."
+              )
+
+          if horizons < 3:
+              raise RuntimeError(
+                  "Forecast does not contain 24/48/72 horizons."
+              )
+
+          print("FORECAST VERIFICATION: PASSED")
+
+          conn.close()
+          PY
+
+      - name: Commit updated database
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -f database/aqi.duckdb
+
+          if git diff --cached --quiet; then
+            echo "No database changes to commit."
+          else
+            git commit -m "chore: update hourly AQI database"
+            git push
+          fi
+
+      - name: Pipeline complete
+        run: |
+          echo "=========================================="
+          echo "PEARLSAQI HOURLY PIPELINE COMPLETE"
+          echo "=========================================="
+          echo "Hourly ingestion    : PASSED"
+          echo "Hourly to daily     : PASSED"
+          echo "Database validation : PASSED"
+          echo "V9 forecast         : PASSED"
+          echo "Forecast validation : PASSED"
+          echo "=========================================="
