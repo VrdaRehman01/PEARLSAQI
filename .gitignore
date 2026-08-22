@@ -147,3 +147,5 @@ analytics/*.parquet
 models/registry/random_forest_h*/
 models/registry/deep_learning_h*/
 models/registry/ridge_h*/
+
+database/aqi.duckdb

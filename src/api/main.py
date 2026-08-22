@@ -1,5 +1,5 @@
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import json
@@ -7,6 +7,10 @@ import pandas as pd
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from src.database.repositories.prediction_repository import (
+    get_latest_predictions,
+    get_all_forecasts,
+)
 
 
 # ============================================================
@@ -65,16 +69,14 @@ METRICS_FILE = (
 # ============================================================
 # HELPERS
 # ============================================================
+def load_v9_predictions():
+    df = get_latest_predictions()
 
-def load_latest_predictions():
-
-    if not LATEST_FILE.exists():
+    if df.empty:
         raise HTTPException(
-            status_code=404,
-            detail="Latest predictions file not found."
+            status_code=503,
+            detail="No V9 forecasts are currently available."
         )
-
-    df = pd.read_csv(LATEST_FILE)
 
     return df
 
@@ -161,7 +163,7 @@ def health():
 @app.get("/predictions")
 def predictions():
 
-    df = load_latest_predictions()
+    df = load_v9_predictions()
 
     results = []
 
@@ -188,13 +190,67 @@ def predictions():
     }
 
 # ============================================================
+# V9 FORECASTS — 24H / 48H / 72H
+# ============================================================
+
+@app.get("/forecasts")
+def forecasts():
+
+    df = get_all_forecasts()
+
+    if df.empty:
+        raise HTTPException(
+            status_code=503,
+            detail="No V9 forecasts are currently available."
+        )
+
+    results = []
+
+    for _, row in df.iterrows():
+
+        horizon = int(row["horizon"])
+        prediction = float(row["predicted_aqi"])
+
+        if horizon == 1:
+            horizon_label = "24h"
+        elif horizon == 2:
+            horizon_label = "48h"
+        elif horizon == 3:
+            horizon_label = "72h"
+        else:
+            horizon_label = f"{horizon * 24}h"
+
+        category = get_category(prediction)
+
+        results.append({
+            "city_id": int(row["city_id"]),
+            "city_name": row["city_name"],
+            "origin_date": str(row["origin_date"]),
+            "forecast_date": str(row["forecast_date"]),
+            "horizon": horizon,
+            "horizon_label": horizon_label,
+            "prediction": prediction,
+            "aqi_category": category,
+            "health_message": get_health_message(category),
+            "model_name": row["model_name"],
+        })
+
+    return {
+        "updated_at": datetime.now().isoformat(),
+        "forecast_count": len(results),
+        "cities": 12,
+        "horizons": [1, 2, 3],
+        "forecasts": results,
+    }
+
+# ============================================================
 # AVAILABLE CITIES
 # ============================================================
 
 @app.get("/cities")
 def cities():
 
-    df = load_latest_predictions()
+    df = load_v9_predictions()
 
     city_list = []
 
@@ -226,7 +282,7 @@ def cities():
 @app.get("/prediction/{city_name}")
 def prediction(city_name: str):
 
-    df = load_latest_predictions()
+    df = load_v9_predictions()
 
     match = df[
         df["city_name"].str.lower() == city_name.lower()
@@ -264,7 +320,7 @@ def prediction(city_name: str):
 @app.get("/stats")
 def stats():
 
-    df = load_latest_predictions()
+    df = load_v9_predictions()
 
     predictions = df["prediction"].astype(float)
 

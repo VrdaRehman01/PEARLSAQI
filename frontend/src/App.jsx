@@ -79,6 +79,7 @@ function App() {
   const [darkMode, setDarkMode] = useState(true);
   const [summary, setSummary] = useState(null);
   const [cities, setCities] = useState([]);
+  const [forecasts, setForecasts] = useState([]);
   const [monthly, setMonthly] = useState([]);
   const [categories, setCategories] = useState([]);
   const [pollutants, setPollutants] = useState([]);
@@ -96,13 +97,13 @@ function App() {
       setError("");
 
       const responses = await Promise.all([
-        fetch(`${API}/analytics/summary`),
-        fetch(`${API}/analytics/cities`),
-        fetch(`${API}/analytics/monthly`),
-        fetch(`${API}/analytics/categories`),
-        fetch(`${API}/analytics/pollutants`),
+         fetch(`${API}/analytics/summary`),
+         fetch(`${API}/analytics/cities`),
+         fetch(`${API}/forecasts`),
+         fetch(`${API}/analytics/monthly`),
+         fetch(`${API}/analytics/categories`),
+         fetch(`${API}/analytics/pollutants`),
       ]);
-
       for (const response of responses) {
         if (!response.ok) {
           throw new Error("PearlsAQI API returned an error.");
@@ -112,6 +113,7 @@ function App() {
       const [
         summaryData,
         citiesData,
+        forecastsData,
         monthlyData,
         categoriesData,
         pollutantsData,
@@ -120,6 +122,7 @@ function App() {
       setSummary(summaryData);
       setCities(citiesData.cities || []);
       setMonthly(monthlyData.data || []);
+      setForecasts(forecastsData.forecasts || []);
       setCategories(categoriesData.data || []);
       setPollutants(pollutantsData.data || []);
     } catch (err) {
@@ -201,6 +204,14 @@ function App() {
       cities.find((city) => city.city_name === selectedCity) || null
     );
   }, [selectedCity, cities]);
+
+  const selectedCityForecasts = useMemo(() => {
+  if (!selectedCity) return [];
+
+  return forecasts
+    .filter((forecast) => forecast.city_name === selectedCity)
+    .sort((a, b) => Number(a.horizon) - Number(b.horizon));
+}, [selectedCity, forecasts]);
 
   const averageAQI = summary?.latest_average_aqi ?? 0;
   const highestAQI = summary?.latest_highest_aqi ?? 0;
@@ -437,6 +448,87 @@ function App() {
                 );
               })}
             </div>
+          </div>
+        </section>
+
+                <section className="panel forecast-panel">
+          <PanelHeader
+            title="V9 Air Quality Forecast"
+            subtitle="Recursive 24-hour, 48-hour and 72-hour predictions"
+            icon={<Activity size={18} />}
+          />
+
+          <div className="forecast-header">
+            <div>
+              <strong>Next 72 hours</strong>
+              <span>
+                AI-powered forecasts from the PearlsAQI V9 XGBoost model
+              </span>
+            </div>
+
+            <div className="forecast-model">
+              V9 XGBoost
+            </div>
+          </div>
+
+          <div className="forecast-grid">
+            {[1, 2, 3].map((horizon) => {
+              const forecast = forecasts.find(
+                (item) =>
+                  Number(item.horizon) === horizon &&
+                  item.city_name === (selectedCity || "Karachi")
+              );
+
+              const labels = {
+                1: "24 Hours",
+                2: "48 Hours",
+                3: "72 Hours",
+              };
+
+              if (!forecast) {
+                return (
+                  <div className="forecast-card" key={horizon}>
+                    <span className="forecast-horizon">
+                      {labels[horizon]}
+                    </span>
+
+                    <strong>—</strong>
+
+                    <span>Forecast unavailable</span>
+                  </div>
+                );
+              }
+
+              const prediction = Number(forecast.prediction);
+
+              return (
+                <div
+                  className={`forecast-card ${getStatusClass(prediction)}`}
+                  key={horizon}
+                >
+                  <span className="forecast-horizon">
+                    {labels[horizon]}
+                  </span>
+
+                  <strong>
+                    {formatNumber(prediction)}
+                  </strong>
+
+                  <span>
+                    {forecast.forecast_date}
+                  </span>
+
+                  <small>
+                    {forecast.aqi_category}
+                  </small>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="forecast-city">
+            Forecast city:{" "}
+            <strong>{selectedCity || "Karachi"}</strong>
           </div>
         </section>
 
