@@ -672,17 +672,10 @@ class WeatherForecastService:
 
         today = date.today()
 
-        start_date = (
-            today
-            + timedelta(days=1)
-        )
+        start_date = today + timedelta(days=1)
 
-        end_date = (
-            today
-            + timedelta(
-                days=self.FORECAST_DAYS
-            )
-        )
+        end_date = today + timedelta(days=self.FORECAST_DAYS)
+
 
         print()
         print(
@@ -898,3 +891,4 @@ if __name__ == "__main__":
     service = WeatherForecastService()
 
     service.download_forecast()
+

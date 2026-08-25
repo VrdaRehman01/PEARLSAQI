@@ -88,6 +88,7 @@ function App() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedCity, setSelectedCity] = useState(null);
+  const [performance, setPerformance] = useState([]);
 
   async function fetchDashboard(showRefresh = false) {
     try {
@@ -100,6 +101,7 @@ function App() {
          fetch(`${API}/analytics/summary`),
          fetch(`${API}/analytics/cities`),
          fetch(`${API}/forecasts`),
+         fetch(`${API}/forecast-performance`),
          fetch(`${API}/analytics/monthly`),
          fetch(`${API}/analytics/categories`),
          fetch(`${API}/analytics/pollutants`),
@@ -114,6 +116,7 @@ function App() {
         summaryData,
         citiesData,
         forecastsData,
+        performanceData,
         monthlyData,
         categoriesData,
         pollutantsData,
@@ -122,6 +125,7 @@ function App() {
       setSummary(summaryData);
       setCities(citiesData.cities || []);
       setMonthly(monthlyData.data || []);
+      setPerformance(performanceData.performance || []);
       setForecasts(forecastsData.forecasts || []);
       setCategories(categoriesData.data || []);
       setPollutants(pollutantsData.data || []);

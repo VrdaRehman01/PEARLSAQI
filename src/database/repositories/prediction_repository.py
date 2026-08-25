@@ -98,3 +98,32 @@ def get_all_forecasts():
 
     finally:
         conn.close()
+
+def get_forecast_performance():
+    """
+    Return V9 forecast accuracy metrics for 24h / 48h / 72h horizons.
+
+    Only forecasts with an available actual AQI are evaluated.
+    """
+
+    conn = get_connection()
+
+    try:
+        query = """
+            SELECT
+                horizon,
+                COUNT(actual_aqi) AS evaluated_rows,
+                ROUND(AVG(absolute_error), 2) AS mae,
+                ROUND(SQRT(AVG(error * error)), 2) AS rmse
+            FROM forecast_predictions
+            WHERE actual_aqi IS NOT NULL
+              AND horizon IN (1, 2, 3)
+            GROUP BY horizon
+            ORDER BY horizon
+        """
+
+        return conn.execute(query).fetchdf()
+
+    finally:
+        conn.close()
+

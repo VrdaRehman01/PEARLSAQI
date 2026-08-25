@@ -1661,7 +1661,10 @@ def forecast_city(
     # Every predicted day becomes part of the recursive state.
     # ============================================================
     
-    forecast_origin = latest_date
+    # Use the current run date for weather-forecast selection.
+    # The latest observed AQI can lag behind the weather forecast
+    # download date, so forecast_origin must NOT be latest_date.
+    forecast_origin = pd.Timestamp(datetime.now().date())
     
     working = history.copy()
     
@@ -2693,4 +2696,3 @@ def main():
 if __name__ == "__main__":
 
     main()
-
