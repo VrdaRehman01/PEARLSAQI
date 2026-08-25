@@ -2,31 +2,53 @@ name: Hourly AQI Data Pipeline
 
 on:
   workflow_dispatch:
+
   schedule:
     - cron: "17 * * * *"
 
 permissions:
   contents: write
 
+# IMPORTANT:
+# Only one workflow is allowed to modify the database at a time.
 concurrency:
-  group: hourly-aqi-data-pipeline
+  group: pearlsaqi-database-writer
   cancel-in-progress: false
 
 jobs:
+
   hourly-pipeline:
+
     name: Hourly AQI Production Pipeline
+
     runs-on: ubuntu-latest
+
     timeout-minutes: 30
 
     steps:
+
+      # ============================================================
+      # CHECKOUT
+      # ============================================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ============================================================
+      # PYTHON
+      # ============================================================
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
+
+      # ============================================================
+      # DEPENDENCIES
+      # ============================================================
 
       - name: Install dependencies
         run: |
@@ -38,26 +60,193 @@ jobs:
           python -c "import duckdb; print('DuckDB:', duckdb.__version__)"
           python -c "import pandas; print('Pandas:', pandas.__version__)"
 
+      # ============================================================
+      # HOURLY INGESTION
+      # ============================================================
+
       - name: Fetch hourly live data
         run: |
-          python -m src.pipelines.hourly_ingestion_pipeline
+          set -e
+
+          echo "=========================================="
+          echo "HOURLY LIVE DATA INGESTION"
+          echo "=========================================="
+
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt/3"
+
+            if python -m src.pipelines.hourly_ingestion_pipeline; then
+              echo "Hourly ingestion succeeded."
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Hourly ingestion failed after 3 attempts."
+              exit 1
+            fi
+
+            echo "Hourly ingestion failed."
+            echo "Waiting 30 seconds before retry..."
+            sleep 30
+          done
+
+      # ============================================================
+      # HOURLY -> DAILY
+      # ============================================================
 
       - name: Synchronize hourly data into daily tables
         run: |
-          python -m src.pipelines.hourly_to_daily_pipeline
+          set -e
+
+          echo "=========================================="
+          echo "HOURLY -> DAILY SYNCHRONIZATION"
+          echo "=========================================="
+
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt/3"
+
+            if python -m src.pipelines.hourly_to_daily_pipeline; then
+              echo "Hourly -> daily synchronization succeeded."
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Hourly -> daily synchronization failed after 3 attempts."
+              exit 1
+            fi
+
+            echo "Synchronization failed."
+            echo "Waiting 30 seconds before retry..."
+            sleep 30
+          done
+
+      # ============================================================
+      # DATABASE VALIDATION
+      # ============================================================
 
       - name: Verify daily database
         run: |
           python - <<'PY'
           import duckdb
+          from datetime import date
 
           db = "database/aqi.duckdb"
+
           conn = duckdb.connect(db)
 
+          try:
+
+              print("=" * 70)
+              print("DAILY DATABASE VERIFICATION")
+              print("=" * 70)
+
+              tables = ["aqi", "weather"]
+
+              for table in tables:
+
+                  latest_date, rows, cities = conn.execute(
+                      f"""
+                      SELECT
+                          MAX(date),
+                          COUNT(*),
+                          COUNT(DISTINCT city_id)
+                      FROM {table}
+                      """
+                  ).fetchone()
+
+                  print()
+                  print(f"{table}:")
+                  print(f"  Latest date : {latest_date}")
+                  print(f"  Rows        : {rows}")
+                  print(f"  Cities      : {cities}")
+
+                  if rows is None or rows == 0:
+                      raise RuntimeError(
+                          f"{table} contains no rows."
+                      )
+
+                  if cities != 12:
+                      raise RuntimeError(
+                          f"{table} contains {cities} cities; "
+                          f"expected 12."
+                      )
+
+              aqi_date = conn.execute(
+                  "SELECT MAX(date) FROM aqi"
+              ).fetchone()[0]
+
+              weather_date = conn.execute(
+                  "SELECT MAX(date) FROM weather"
+              ).fetchone()[0]
+
+              print()
+              print("AQI latest date    :", aqi_date)
+              print("Weather latest date:", weather_date)
+
+              if aqi_date is None:
+                  raise RuntimeError(
+                      "AQI table has no latest date."
+                  )
+
+              if weather_date is None:
+                  raise RuntimeError(
+                      "Weather table has no latest date."
+                  )
+
+              if aqi_date != weather_date:
+                  raise RuntimeError(
+                      "AQI/weather latest dates do not match: "
+                      f"{aqi_date} vs {weather_date}"
+                  )
+
+              # ------------------------------------------------------
+              # Check duplicate daily rows
+              # ------------------------------------------------------
+
+              for table in tables:
+
+                  duplicates = conn.execute(
+                      f"""
+                      SELECT city_id, date, COUNT(*)
+                      FROM {table}
+                      GROUP BY city_id, date
+                      HAVING COUNT(*) > 1
+                      LIMIT 20
+                      """
+                  ).fetchall()
+
+                  if duplicates:
+
+                      raise RuntimeError(
+                          f"Duplicate rows found in {table}: "
+                          f"{duplicates}"
+                      )
+
+              print()
+              print("DAILY DATABASE VERIFICATION: PASSED")
+
+          finally:
+
+              conn.close()
+          PY
+
+      # ============================================================
+      # DATABASE SUMMARY
+      # ============================================================
+
+      - name: Print database summary
+        run: |
+          python - <<'PY'
+          import duckdb
+
+          conn = duckdb.connect("database/aqi.duckdb")
+
           for table in ["aqi", "weather"]:
-              latest_date, rows, cities = conn.execute(
+
+              result = conn.execute(
                   f"""
                   SELECT
+                      MIN(date),
                       MAX(date),
                       COUNT(*),
                       COUNT(DISTINCT city_id)
@@ -65,197 +254,25 @@ jobs:
                   """
               ).fetchone()
 
-              print(f"{table}:")
-              print(f"  Latest date: {latest_date}")
-              print(f"  Rows: {rows}")
-              print(f"  Cities: {cities}")
-
-              if cities != 12:
-                  raise RuntimeError(
-                      f"{table} does not contain all 12 cities."
-                  )
-
-          aqi_date = conn.execute(
-              "SELECT MAX(date) FROM aqi"
-          ).fetchone()[0]
-
-          weather_date = conn.execute(
-              "SELECT MAX(date) FROM weather"
-          ).fetchone()[0]
-
-          if aqi_date != weather_date:
-              raise RuntimeError(
-                  f"AQI/weather dates do not match: "
-                  f"{aqi_date} vs {weather_date}"
+              print(
+                  f"{table}: "
+                  f"min={result[0]}, "
+                  f"max={result[1]}, "
+                  f"rows={result[2]}, "
+                  f"cities={result[3]}"
               )
-
-          print("DAILY DATABASE VERIFICATION: PASSED")
-
-          conn.close()
-          PY
-
-            # ============================================================
-      # GENERATE FUTURE WEATHER FORECAST
-      # ============================================================
-
-      - name: Generate future weather forecast
-        run: |
-          python -m src.services.weather_forecast_service
-
-      # ============================================================
-      # VERIFY FUTURE WEATHER
-      # ============================================================
-
-      - name: Verify future weather forecast
-        run: |
-          python - <<'PY'
-          import duckdb
-          from datetime import date, timedelta
-
-          db = "database/aqi.duckdb"
-          conn = duckdb.connect(db)
-
-          today = date.today()
-
-          expected_dates = [
-              today + timedelta(days=1),
-              today + timedelta(days=2),
-              today + timedelta(days=3),
-          ]
-
-          rows = conn.execute(
-              """
-              SELECT
-                  COUNT(*),
-                  COUNT(DISTINCT city_id),
-                  COUNT(DISTINCT date),
-                  MIN(date),
-                  MAX(date)
-              FROM weather_forecasts
-              WHERE date >= ?
-                AND date <= ?
-              """,
-              [expected_dates[0], expected_dates[-1]],
-          ).fetchone()
-
-          total_rows = int(rows[0])
-          cities = int(rows[1])
-          dates = int(rows[2])
-          first_date = rows[3]
-          last_date = rows[4]
-
-          print("Future weather rows :", total_rows)
-          print("Cities               :", cities)
-          print("Dates                :", dates)
-          print("First date           :", first_date)
-          print("Last date            :", last_date)
-
-          expected_rows = 12 * 3
-
-          if total_rows != expected_rows:
-              raise RuntimeError(
-                  f"Future weather row count invalid: "
-                  f"expected {expected_rows}, got {total_rows}"
-              )
-
-          if cities != 12:
-              raise RuntimeError(
-                  f"Future weather city count invalid: "
-                  f"expected 12, got {cities}"
-              )
-
-          if dates != 3:
-              raise RuntimeError(
-                  f"Future weather date count invalid: "
-                  f"expected 3, got {dates}"
-              )
-
-          if first_date != expected_dates[0]:
-              raise RuntimeError(
-                  f"Future weather starts on {first_date}, "
-                  f"expected {expected_dates[0]}"
-              )
-
-          if last_date != expected_dates[-1]:
-              raise RuntimeError(
-                  f"Future weather ends on {last_date}, "
-                  f"expected {expected_dates[-1]}"
-              )
-
-          duplicate_rows = conn.execute(
-              """
-              SELECT city_id, date, COUNT(*)
-              FROM weather_forecasts
-              WHERE date >= ?
-                AND date <= ?
-              GROUP BY city_id, date
-              HAVING COUNT(*) > 1
-              """,
-              [expected_dates[0], expected_dates[-1]],
-          ).fetchall()
-
-          if duplicate_rows:
-              raise RuntimeError(
-                  f"Duplicate future weather rows found: "
-                  f"{duplicate_rows}"
-              )
-
-          print("FUTURE WEATHER VERIFICATION: PASSED")
 
           conn.close()
           PY
 
       # ============================================================
-      # GENERATE V9 FORECASTS
+      # COMMIT DATABASE
       # ============================================================
-
-      - name: Generate V9 forecasts
-        run: |
-          python -m src.ml.forecast_engine_v9
-
-      - name: Verify forecast output
-        run: |
-          python - <<'PY'
-          import duckdb
-
-          db = "database/aqi.duckdb"
-          conn = duckdb.connect(db)
-
-          total, cities, horizons, first_date, last_date = conn.execute(
-              """
-              SELECT
-                  COUNT(*),
-                  COUNT(DISTINCT city_id),
-                  COUNT(DISTINCT horizon),
-                  MIN(forecast_date),
-                  MAX(forecast_date)
-              FROM forecast_predictions
-              """
-          ).fetchone()
-
-          print("Forecast rows :", total)
-          print("Cities        :", cities)
-          print("Horizons      :", horizons)
-          print("First date    :", first_date)
-          print("Last date     :", last_date)
-
-          if cities != 12:
-              raise RuntimeError(
-                  "Forecast does not contain all 12 cities."
-              )
-
-          if horizons < 3:
-              raise RuntimeError(
-                  "Forecast does not contain 24/48/72 horizons."
-              )
-
-          print("FORECAST VERIFICATION: PASSED")
-
-          conn.close()
-          PY
 
       - name: Commit updated database
         run: |
+          set -e
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -263,10 +280,47 @@ jobs:
 
           if git diff --cached --quiet; then
             echo "No database changes to commit."
-          else
-            git commit -m "chore: update hourly AQI database"
-            git push
+            exit 0
           fi
+
+          git commit -m "chore: update hourly AQI database"
+
+          # --------------------------------------------------------
+          # Push with retry in case another database writer changed
+          # the remote while this job was running.
+          # --------------------------------------------------------
+
+          for attempt in 1 2 3; do
+
+            echo "Push attempt $attempt/3"
+
+            if git push origin HEAD:${GITHUB_REF_NAME}; then
+              echo "Database push succeeded."
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "Git push failed after 3 attempts."
+              exit 1
+            fi
+
+            echo "Push failed."
+            echo "Rebasing against remote..."
+
+            git fetch origin "${GITHUB_REF_NAME}"
+
+            git rebase "origin/${GITHUB_REF_NAME}" || {
+              echo "Rebase failed."
+              exit 1
+            }
+
+            sleep 10
+
+          done
+
+      # ============================================================
+      # COMPLETE
+      # ============================================================
 
       - name: Pipeline complete
         run: |
@@ -276,6 +330,5 @@ jobs:
           echo "Hourly ingestion    : PASSED"
           echo "Hourly to daily     : PASSED"
           echo "Database validation : PASSED"
-          echo "V9 forecast         : PASSED"
-          echo "Forecast validation : PASSED"
+          echo "Database commit     : PASSED"
           echo "=========================================="
