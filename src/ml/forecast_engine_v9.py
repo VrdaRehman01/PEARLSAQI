@@ -1661,10 +1661,17 @@ def forecast_city(
     # Every predicted day becomes part of the recursive state.
     # ============================================================
     
-    # Use the current run date for weather-forecast selection.
-    # The latest observed AQI can lag behind the weather forecast
-    # download date, so forecast_origin must NOT be latest_date.
-    forecast_origin = pd.Timestamp(datetime.now().date())
+    # Forecast origin is the first forecastable date.
+    # It must never be earlier than today and must never be
+    # earlier than the day immediately after the latest real AQI.
+    #
+    # This keeps origin_date and forecast_date internally consistent:
+    #   horizon 1 -> forecast_origin
+    #   horizon 2 -> forecast_origin + 1 day
+    #   horizon 3 -> forecast_origin + 2 days
+    today = pd.Timestamp(datetime.now().date())
+    next_after_actual = latest_date.normalize() + pd.Timedelta(days=1)
+    forecast_origin = max(today, next_after_actual)
     
     working = history.copy()
     
@@ -1677,8 +1684,8 @@ def forecast_city(
     for internal_step in range(1, 4):
     
         forecast_date = (
-            latest_date
-            + timedelta(days=internal_step)
+            forecast_origin
+            + timedelta(days=internal_step - 1)
         )
     
         user_horizon = internal_step
@@ -1871,10 +1878,6 @@ def forecast_city(
     
 
     # Return only after all 3 recursive horizons have been generated.
-    return results
-
-    # Return only after all three recursive horizons
-    # have been generated for this city.
     return results
 # ============================================================
 # GENERATE ALL FORECASTS

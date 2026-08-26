@@ -304,6 +304,7 @@ def load_v4_data():
 def prepare_v4_data(
     train_df,
     validation_df,
+    production_model=None,
 ):
 
     # EXACTLY copied from V4 training logic.
@@ -318,29 +319,98 @@ def prepare_v4_data(
         "target_aqi"
     )
 
-    FEATURE_COLUMNS = [
-        column
-        for column in train_df.columns
-        if column not in EXCLUDED_COLUMNS
-    ]
-
     # --------------------------------------------------------
-    # Safety check:
-    # validation must contain every training feature.
+    # Determine the feature set.
+    #
+    # The V4 feature store may contain additional columns that
+    # were not part of the currently registered production
+    # model. For production-safe retraining/evaluation, use
+    # the production model's exact feature contract when it
+    # is available.
     # --------------------------------------------------------
 
-    missing_features = [
-        column
-        for column in FEATURE_COLUMNS
-        if column not in validation_df.columns
-    ]
+    production_feature_columns = None
 
-    if missing_features:
+    if production_model is not None and hasattr(
+        production_model,
+        "feature_names_in_"
+    ):
+        production_feature_columns = [
+            str(column)
+            for column in production_model.feature_names_in_
+        ]
 
-        raise ValueError(
-            "Features missing from validation data: "
-            f"{missing_features}"
+    if production_feature_columns:
+
+        FEATURE_COLUMNS = production_feature_columns
+
+        print()
+        print(
+            "Using production model feature contract."
         )
+        print(
+            f"Production model features: "
+            f"{len(FEATURE_COLUMNS)}"
+        )
+
+        # ----------------------------------------------------
+        # Safety check:
+        # every production feature must exist in the
+        # newly generated V4 dataset.
+        # ----------------------------------------------------
+
+        missing_train_features = [
+            column
+            for column in FEATURE_COLUMNS
+            if column not in train_df.columns
+        ]
+
+        missing_validation_features = [
+            column
+            for column in FEATURE_COLUMNS
+            if column not in validation_df.columns
+        ]
+
+        if missing_train_features:
+
+            raise ValueError(
+                "Features missing from training data: "
+                f"{missing_train_features}"
+            )
+
+        if missing_validation_features:
+
+            raise ValueError(
+                "Features missing from validation data: "
+                f"{missing_validation_features}"
+            )
+
+    else:
+
+        # ----------------------------------------------------
+        # Fallback for cases where no production model is
+        # available. Preserve the normal V4 feature
+        # selection behaviour.
+        # ----------------------------------------------------
+
+        FEATURE_COLUMNS = [
+            column
+            for column in train_df.columns
+            if column not in EXCLUDED_COLUMNS
+        ]
+
+        missing_features = [
+            column
+            for column in FEATURE_COLUMNS
+            if column not in validation_df.columns
+        ]
+
+        if missing_features:
+
+            raise ValueError(
+                "Features missing from validation data: "
+                f"{missing_features}"
+            )
 
     # --------------------------------------------------------
     # Safety check:
@@ -354,19 +424,28 @@ def prepare_v4_data(
         )
 
     # --------------------------------------------------------
-    # Safety check:
-    # V4 must contain exactly 107 features.
+    # Production model compatibility check.
+    #
+    # If a production model exists, the feature count must
+    # exactly match its trained feature count.
     # --------------------------------------------------------
 
-    if len(
-        FEATURE_COLUMNS
-    ) != 107:
+    if production_model is not None and hasattr(
+        production_model,
+        "feature_names_in_"
+    ):
 
-        raise RuntimeError(
-            "Unexpected V4 feature count. "
-            f"Expected 107, "
-            f"got {len(FEATURE_COLUMNS)}."
+        expected_feature_count = len(
+            production_model.feature_names_in_
         )
+
+        if len(FEATURE_COLUMNS) != expected_feature_count:
+
+            raise RuntimeError(
+                "Production feature mismatch. "
+                f"Expected {expected_feature_count}, "
+                f"got {len(FEATURE_COLUMNS)}."
+            )
 
     # --------------------------------------------------------
     # Build matrices.
@@ -1108,6 +1187,7 @@ def run_auto_retrain():
     ) = prepare_v4_data(
         train_df,
         validation_df,
+        production_model=production_model,
     )
 
     # --------------------------------------------------------
