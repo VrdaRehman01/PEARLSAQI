@@ -1,11 +1,10 @@
-﻿numpy==1.26.4
+numpy==1.26.4
 pandas==2.2.3
 requests
 python-dotenv
 scikit-learn
 xgboost
 tensorflow
-hopsworks[python]
 joblib
 huggingface_hub
 
