@@ -28,17 +28,6 @@ button,input {
     background:radial-gradient(circle at 70% 0%,rgba(18,65,72,.22),transparent 34%),#061018;
     color:#edf5f7
 }
-.sidebar {
-    position:fixed;
-    inset:0 auto 0 0;
-    width:224px;
-    border-right:1px solid rgba(71,108,119,.28);
-    background:linear-gradient(180deg,#07131d 0%,#061019 75%,#07151c 100%);
-    padding:22px 13px 16px;
-    z-index:50;
-    display:flex;
-    flex-direction:column
-}
 .brand {
     display:flex;
     align-items:center;
@@ -155,11 +144,6 @@ nav .nav-active {
     color:#9aabb5;
     padding:8px;
     cursor:pointer
-}
-.content {
-    margin-left:224px;
-    padding:16px 18px 34px;
-    max-width:1600px
 }
 .topbar {
     height: 40px;
@@ -5943,23 +5927,6 @@ body section.city-directory {
    PEARLSAQI SIDEBAR — FINAL DESIGN OVERRIDE
    ========================================================= */
 
-.sidebar {
-  width: 248px !important;
-  padding: 20px 12px 14px !important;
-
-  background:
-    linear-gradient(
-      180deg,
-      #07151f 0%,
-      #06121b 55%,
-      #071720 100%
-    ) !important;
-
-  border-right: 1px solid rgba(55, 103, 117, 0.35) !important;
-
-  box-shadow:
-    8px 0 30px rgba(0, 0, 0, 0.12) !important;
-}
 
 /* BRAND */
 
@@ -6146,9 +6113,6 @@ body section.city-directory {
 
 /* CONTENT OFFSET */
 
-.content {
-  margin-left: 248px !important;
-}
 
 
 /* MOBILE */
@@ -8855,24 +8819,6 @@ flex: 0 0 74px;
 
 .scenario-box .scenario-result-gauge {
   --gauge-color: var(--scenario-color);
-}
-
-.scenario-result-category {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 34px;
-  max-width: 100%;
-  margin-top: 24px;
-  padding: 0 13px;
-  box-sizing: border-box;
-  border: 1px solid var(--scenario-color, #2f8fff);
-  border-radius: 9px;
-  color: var(--scenario-color, #2f8fff);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
 }
 
 /* ---------- CHANGE / FEATURE CARDS ---------- */
@@ -12862,16 +12808,6 @@ div.scenario-summary {
 }
 
 /* NET CHANGE */
-.scenario-net-change-card {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  margin-top: 14px !important;
-  padding: 20px !important;
-  border-radius: 14px !important;
-  border: 1px solid rgba(0,170,235,.13) !important;
-  background: rgba(1,13,23,.60) !important;
-}
 
 .scenario-net-change-card strong {
   display: block !important;
@@ -13163,22 +13099,6 @@ div.scenario-summary {
 }
 
 /* NET CHANGE BOX */
-.scenario-net-change-card {
-  width: 100% !important;
-  min-height: 140px !important;
-  box-sizing: border-box !important;
-
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-
-  margin-top: 14px !important;
-  padding: 20px !important;
-
-  border: 1px solid rgba(0,170,235,.13) !important;
-  border-radius: 14px !important;
-  background: rgba(1,13,23,.60) !important;
-}
 
 /* IMPACT ANALYSIS BOX */
 .scenario-impact-card {
@@ -13224,14 +13144,6 @@ div.scenario-summary {
     min-height: 0 !important;
   }
 }
-.scenario-shap-direction-header {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin: 10px 0 4px;
-  padding-left: 244px;
-  font-size: 13px;
-  font-weight: 600;
-}
 
 .scenario-shap-increase-label {
   text-align: right;
@@ -13266,20 +13178,6 @@ div.scenario-summary {
    SHAP DIRECTION HEADER + BAR COLORS FIX
    ========================================================= */
 
-.scenario-shap-direction-header {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 18px !important;
-
-  width: auto !important;
-  max-width: max-content !important;
-
-  margin: 4px 0 10px auto !important;
-  padding: 6px 12px !important;
-
-  box-sizing: border-box !important;
-}
 
 .scenario-shap-increase-label {
   text-align: left !important;
@@ -13313,19 +13211,6 @@ div.scenario-summary {
 
 .scenario-shap-value.negative {
   color: #27d98b !important;
-}
-.scenario-shap-direction-header {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
-  gap: 22px !important;
-  width: 100% !important;
-  margin: 4px 0 10px !important;
-  padding: 7px 12px !important;
-  box-sizing: border-box !important;
-  background: rgba(8, 28, 40, 0.75) !important;
-  border: 1px solid rgba(0, 214, 201, 0.16) !important;
-  border-radius: 9px !important;
 }
 
 .scenario-shap-increase-label,
@@ -13570,14 +13455,6 @@ div.scenario-summary {
    NET CHANGE — CLEAN FILLED CARD
    ========================================================= */
 
-.scenario-net-change-card {
-  min-height: 140px !important;
-  padding: 20px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  box-sizing: border-box !important;
-}
 
 .scenario-net-change-main {
   display: flex !important;
@@ -13628,57 +13505,10 @@ div.scenario-summary {
    SCENARIO RESULT CATEGORY — COMPACT
    ========================================================= */
 
-.scenario-result-category {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-
-  width: auto !important;
-  max-width: calc(100% - 20px) !important;
-  min-width: 0 !important;
-
-  padding: 6px 10px !important;
-
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  line-height: 1.2 !important;
-
-  text-align: center !important;
-  white-space: normal !important;
-  overflow-wrap: break-word !important;
-  word-break: normal !important;
-
-  box-sizing: border-box !important;
-}
 /* =========================================================
    AQI CATEGORY — FIT INSIDE RESULT BOX
    ========================================================= */
 
-.scenario-result-category {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-
-  width: calc(100% - 20px) !important;
-  max-width: calc(100% - 20px) !important;
-  min-width: 0 !important;
-
-  margin: 8px auto 0 !important;
-  padding: 6px 8px !important;
-
-  box-sizing: border-box !important;
-
-  font-size: 10px !important;
-  font-weight: 600 !important;
-  line-height: 1.2 !important;
-
-  text-align: center !important;
-
-  white-space: normal !important;
-  overflow: hidden !important;
-  overflow-wrap: anywhere !important;
-  word-break: break-word !important;
-}
 /* FIX LONG AQI STATUS TEXT INSIDE CARD */
 
 .scenario-result-box .scenario-result-category {
@@ -13730,13 +13560,6 @@ div.scenario-summary {
 }
 /* NET CHANGE CONTENT */
 
-.scenario-net-change-card {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 22px 24px !important;
-  box-sizing: border-box !important;
-}
 
 .scenario-net-change-main {
   display: flex !important;
@@ -13802,10 +13625,6 @@ div.scenario-summary {
    3-DAY AQI FORECAST
 ================================ */
 
-.three-day-forecast {
-  width: 100%;
-  margin: 28px 0;
-}
 
 .three-day-forecast-head {
   display: flex;
@@ -13842,18 +13661,6 @@ div.scenario-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-}
-
-.three-day-card {
-  min-height: 245px;
-  padding: 20px;
-  box-sizing: border-box;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #0b1d27, #05141b);
-  border: 1px solid rgba(72,104,118,.42);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
 .three-day-card-top {
@@ -13975,25 +13782,11 @@ div.scenario-summary {
   }
 }
 /* 3-DAY FORECAST — PANEL SIZE FIX */
-.three-day-forecast {
-  width: 100% !important;
-  box-sizing: border-box !important;
-  margin: 28px 0 !important;
-}
 
 .three-day-forecast-grid {
   width: 100% !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 12px !important;
-}
-
-.three-day-card {
-  width: 100% !important;
-  min-height: 190px !important;
-  height: 190px !important;
-  padding: 16px !important;
-  border-radius: 16px !important;
-  box-sizing: border-box !important;
 }
 
 .three-day-aqi {
@@ -14014,10 +13807,6 @@ div.scenario-summary {
    3-DAY AQI FORECAST — FULL WIDTH RECTANGLES
 ========================================= */
 
-.three-day-forecast {
-  width: 100% !important;
-  margin: 28px 0 34px !important;
-}
 
 .three-day-forecast-head {
   width: 100% !important;
@@ -14029,16 +13818,6 @@ div.scenario-summary {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 10px !important;
-}
-
-.three-day-card {
-  width: 100% !important;
-  height: 350px !important;
-  min-height: 350px !important;
-  max-height: 350px !important;
-  padding: 20px 22px !important;
-  border-radius: 16px !important;
-  box-sizing: border-box !important;
 }
 /* Card content spacing */
 .three-day-aqi {
@@ -14076,19 +13855,7 @@ div.scenario-summary {
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 12px !important;
 }
-
-.three-day-card {
-  width: 100% !important;
-  height: 350px !important;
-  min-height: 350px !important;
-  max-height: 350px !important;
-  box-sizing: border-box !important;
-}
 /* ONLY 3-DAY AQI FORECAST */
-.three-day-forecast {
-  width: 100% !important;
-  max-width: none !important;
-}
 
 .three-day-forecast-grid {
   width: 100% !important;
@@ -14099,11 +13866,6 @@ div.scenario-summary {
 }
 
 /* 3-Day Forecast — Final Card Fix */
-.three-day-forecast {
-  width: 100% !important;
-  max-width: none !important;
-  box-sizing: border-box !important;
-}
 
 .three-day-forecast-grid {
   width: 100% !important;
@@ -14122,41 +13884,12 @@ div.scenario-summary {
 
 }
 /* ONLY 3-DAY AQI FORECAST */
-.three-day-forecast {
-  grid-column: 1 / -1 !important;
-  width: 100% !important;
-  max-width: none !important;
-  box-sizing: border-box !important;
-}
 
 .three-day-forecast-grid {
   width: 100% !important;
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 12px !important;
-}
-
-.three-day-card {
-  width: 100% !important;
-  min-width: 0 !important;
-  box-sizing: border-box !important;
-}
-.three-day-card {
-  height: 200px !important;
-  min-height: 200px !important;
-  max-height: 200px !important;
-}
-.three-day-card {
-  position: relative !important;
-  height: 260px !important;
-  min-height: 260px !important;
-  max-height: 260px !important;
-
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
 }
 
 /* DAY + DATE */
@@ -14181,10 +13914,6 @@ div.scenario-summary {
 /* PREDICTED TEXT */
 .three-day-card p {
   margin: 12px 0 0 !important;
-}
-.three-day-card {
-  position: relative !important;
-  overflow: hidden !important;
 }
 
 .three-day-card-top {
@@ -14625,13 +14354,6 @@ div.scenario-summary {
    SHAP PAGINATION
 ================================ */
 
-.end-shap-pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  margin-top: 18px;
-}
 
 .end-shap-pagination button {
   width: 32px;
@@ -14916,14 +14638,6 @@ div.scenario-summary {
 .end-shap-value.positive { color: #ff5262; }
 .end-shap-value.negative { color: #2e8cff; }
 
-.end-shap-pagination {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 10px;
-  padding-top: 12px;
-}
-
 .end-shap-showing {
   color: #71838e;
   font-size: 8px;
@@ -14999,15 +14713,6 @@ div.scenario-summary {
   .end-shap-download { justify-self: center; }
   .end-shap-row { grid-template-columns: minmax(105px, 1fr) minmax(70px, 1fr) 42px; gap: 7px; }
 }
-.end-shap-pagination {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  margin-top: 24px;
-  gap: 8px;
-}
 
 .end-shap-pagination-summary {
   display: block;
@@ -15062,15 +14767,6 @@ div.scenario-summary {
   text-align: center;
   color: #91a4ad;
 }
-.end-shap-pagination {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  margin-top: 32px;
-  gap: 9px;
-}
 
 .end-shap-pagination-summary {
   display: block;
@@ -15091,24 +14787,6 @@ div.scenario-summary {
   justify-content: center;
   gap: 3px;
   width: 100%;
-}
-.end-shap-pagination {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  margin-top: 45px;   /* yeh gap neeche karega */
-  gap: 10px;
-}
-.end-shap-pagination {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  margin-top: 60px;
-  gap: 10px;
 }
 
 .end-shap-pagination-summary {
@@ -15239,9 +14917,6 @@ div.scenario-summary {
   margin-top: 0 !important;
 }
 /* Move SHAP summary + pagination downward */
-.end-shap-pagination {
-  transform: translateY(30px) !important;
-}
 .app-footer {
   margin-top: 32px;
   padding: 18px 0 24px;
@@ -15267,15 +14942,6 @@ div.scenario-summary {
    PEARLSAQI FOOTER — ALIGNMENT FIX
    ========================================================= */
 
-.pearlsaqi-footer {
-  width: 100% !important;
-  box-sizing: border-box !important;
-  margin: 35px 0 0 !important;
-  padding: 30px 28px 20px !important;
-  border: 1px solid rgba(60, 220, 180, 0.18) !important;
-  border-radius: 18px !important;
-  background: #06151d !important;
-}
 
 /* ===== TOP 4 COLUMNS ===== */
 
@@ -15565,15 +15231,6 @@ div.scenario-summary {
    PEARLSAQI FOOTER — ALIGNMENT FIX
    ========================================================= */
 
-.pearlsaqi-footer {
-  width: 100% !important;
-  box-sizing: border-box !important;
-  margin: 35px 0 0 !important;
-  padding: 30px 28px 20px !important;
-  border: 1px solid rgba(60, 220, 180, 0.18) !important;
-  border-radius: 18px !important;
-  background: #06151d !important;
-}
 
 /* ===== TOP 4 COLUMNS ===== */
 
@@ -15863,15 +15520,6 @@ div.scenario-summary {
    PEARLSAQI FOOTER — FINAL PROPER ALIGNMENT
    ========================================================= */
 
-.pearlsaqi-footer {
-  width: calc(100% - 40px) !important;
-  margin: 28px 20px 20px !important;
-  padding: 28px 22px 18px !important;
-  box-sizing: border-box !important;
-  border: 1px solid rgba(55, 210, 180, 0.20) !important;
-  border-radius: 20px !important;
-  background: #06151d !important;
-}
 
 /* ================= TOP SECTION ================= */
 
@@ -16219,10 +15867,6 @@ footer.pearlsaqi-footer {
   width: 100% !important;
   box-sizing: border-box !important;
 }
-/* Move the complete footer box slightly left */
-.pearlsaqi-footer {
-  transform: translateX(-20px) !important;
-}
 .pearlsaqi-footer-bottom {
   display: flex !important;
   justify-content: flex-end !important;
@@ -16410,4 +16054,333 @@ footer.pearlsaqi-footer {
 
 .air-quality-insights-heading .panel-icon {
   color: #40e8a8 !important;
+}
+
+/* =========================================================
+   PEARLSAQI — FINAL CONSOLIDATED CASCADE
+   Preserves the established localhost:5173 visual system.
+   ========================================================= */
+
+/* SIDEBAR — one desktop source of truth */
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 248px;
+  padding: 20px 12px 14px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: linear-gradient(180deg,#07151f 0%,#06121b 55%,#071720 100%);
+  border-right: 1px solid rgba(55,103,117,.35);
+  box-shadow: 8px 0 30px rgba(0,0,0,.12);
+}
+
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px 16px;
+  border-bottom: 1px solid rgba(74,112,124,.20);
+}
+
+.sidebar .brand-logo {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  flex: 0 0 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #40e8a8;
+  background: radial-gradient(circle at 35% 30%,rgba(64,232,168,.16),rgba(64,232,168,.035));
+  border: 1px solid rgba(64,232,168,.42);
+  box-shadow: 0 0 18px rgba(64,232,168,.10),inset 0 0 16px rgba(64,232,168,.06);
+}
+
+.sidebar .brand-logo svg {
+  width: 31px;
+  height: 31px;
+  color: #40e8a8;
+  stroke-width: 2.1;
+  filter: drop-shadow(0 0 6px rgba(64,232,168,.28));
+}
+
+.sidebar .brand > div:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.sidebar .brand > div:last-child strong {
+  display: block;
+  font-family: "Outfit","Inter",sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.7px;
+  background: linear-gradient(90deg,#f1f7fa 0%,#dceef0 55%,#8ff0ce 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sidebar .brand > div:last-child span {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  font-family: "Outfit","Inter",sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: .15px;
+  color: #8fa4ae;
+}
+
+.sidebar nav {
+  padding-top: 18px;
+  display: grid;
+  gap: 5px;
+}
+
+.sidebar nav button {
+  position: relative;
+  width: 100%;
+  height: 47px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: transparent;
+  color: #aebdc5;
+  text-align: left;
+  cursor: pointer;
+  transition: background .2s ease,color .2s ease,transform .2s ease;
+}
+
+.sidebar nav button svg {
+  flex-shrink: 0;
+  color: #a9bac2;
+  transition: color .2s ease;
+}
+
+.sidebar nav button span {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sidebar nav button:hover {
+  background: rgba(38,213,158,.07);
+  color: #edf8f7;
+  transform: translateX(2px);
+}
+
+.sidebar nav button:hover svg { color: #42e5a0; }
+
+.sidebar nav .nav-active {
+  background: linear-gradient(90deg,rgba(36,221,173,.19),rgba(20,94,101,.16));
+  color: #f1fbfa;
+  box-shadow: inset 3px 0 #35e39b;
+}
+
+.sidebar nav .nav-active svg { color: #3de5a1; }
+
+.sidebar .data-status {
+  margin-top: auto;
+  width: 100%;
+  padding: 15px 14px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid rgba(43,87,101,.75);
+  background: linear-gradient(145deg,rgba(8,30,40,.92),rgba(6,23,32,.82));
+  box-shadow: 0 12px 30px rgba(0,0,0,.16);
+}
+
+.sidebar .status-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.sidebar .status-head strong { font-size: 10px; letter-spacing: .3px; }
+.sidebar .status-head span { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.sidebar .status-head i {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #40e893;
+  box-shadow: 0 0 8px #40e893;
+}
+.sidebar .data-status > div:not(.status-head) { display: flex; gap: 10px; margin: 13px 0; color: #aebbc3; }
+.sidebar .data-status > div:not(.status-head) > span { font-size: 11px; color: #dbe4e8; }
+.sidebar .data-status small { display: block; margin-top: 3px; color: #738791; font-size: 9px; }
+
+/* CONTENT — exact companion offset */
+.content {
+  margin-left: 248px;
+  padding: 16px 18px 34px;
+  max-width: 1600px;
+  box-sizing: border-box;
+}
+
+/* 3-DAY FORECAST — full row */
+.three-day-forecast {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin: 28px 0 34px;
+}
+
+/* 3-DAY CARDS — one stable height */
+.three-day-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: 260px;
+  min-height: 260px;
+  max-height: 260px;
+  padding: 20px 22px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  background: linear-gradient(145deg,#0b1d27,#05141b);
+  border: 1px solid rgba(72,104,118,.42);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* END SHAP PAGINATION — centered without transform hacks */
+.end-shap-pagination {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 18px;
+  gap: 8px;
+}
+
+.end-shap-pagination-summary {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.end-shap-pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+}
+
+/* FOOTER — aligned to content; no horizontal translation */
+.pearlsaqi-footer {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 28px 0 20px;
+  padding: 28px 22px 18px;
+  border: 1px solid rgba(55,210,180,.20);
+  border-radius: 20px;
+  background: #06151d;
+}
+
+/* SCENARIO RESULT CATEGORY — compact, centered, wrapping-safe */
+.scenario-result-category {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 20px);
+  max-width: calc(100% - 20px);
+  min-width: 0;
+  min-height: 34px;
+  margin: 8px auto 0;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  color: var(--scenario-color,#2f8fff);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* SCENARIO NET CHANGE — preserve established card geometry */
+.scenario-net-change-card {
+  width: 100%;
+  min-height: 140px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 22px 24px;
+  border: 1px solid rgba(0,170,235,.13);
+  border-radius: 14px;
+  background: rgba(1,13,23,.60);
+}
+
+/* SCENARIO SHAP DIRECTION HEADER — full-width legend */
+.scenario-shap-direction-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 22px;
+  width: 100%;
+  max-width: none;
+  margin: 4px 0 10px;
+  padding: 7px 12px;
+  box-sizing: border-box;
+  background: rgba(8,28,40,.75);
+  border: 1px solid rgba(0,214,201,.16);
+  border-radius: 9px;
+}
+
+.scenario-shap-increase-label,
+.scenario-shap-decrease-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.scenario-shap-increase-label { color: #ff4d5a; }
+.scenario-shap-decrease-label { color: #27d98b; }
+
+/* Keep the existing responsive behavior after the desktop source of truth. */
+@media (max-width: 900px) {
+  .three-day-forecast-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 850px) {
+  .sidebar { width: 248px; }
+  .content { margin-left: 0; }
+}
+
+@media (max-width: 700px) {
+  .pearlsaqi-footer {
+    width: calc(100% - 20px);
+    margin: 20px 10px;
+  }
 }
