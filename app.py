@@ -7,8 +7,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from flask import Flask, jsonify, render_template, request
-
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from src.config import CITIES
 from src.alerts.aqi_alerts import get_alert
 from src.models.model_registry import get_all_registered_models
@@ -64,8 +63,11 @@ FEATURE_FILE = os.path.join(
     "final_candidate",
     "feature_columns.json",
 )
-
-
+FRONTEND_DIST = os.path.join(
+    BASE_DIR,
+    "frontend",
+    "dist",
+)
 # ============================================================
 # V4 MODEL CACHE
 # ============================================================
@@ -351,13 +353,16 @@ def pollutant_data(row):
 # ============================================================
 # ROUTES
 # ============================================================
-
 @app.route("/")
 def index():
+    return send_from_directory(FRONTEND_DIST, "index.html")
 
-    return render_template(
-        "index.html",
-        cities=CITIES,
+
+@app.route("/assets/<path:filename>")
+def frontend_assets(filename):
+    return send_from_directory(
+        os.path.join(FRONTEND_DIST, "assets"),
+        filename,
     )
 
 
@@ -401,6 +406,7 @@ def health():
 # ============================================================
 
 @app.route("/predict/<city>")
+@app.route("/api/predict/<city>")
 def predict(city):
 
     try:
@@ -949,6 +955,15 @@ def scenario_predict():
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route("/<path:path>")
+def frontend_routes(path):
+    requested_file = os.path.join(FRONTEND_DIST, path)
+
+    if os.path.isfile(requested_file):
+        return send_from_directory(FRONTEND_DIST, path)
+
+    return send_from_directory(FRONTEND_DIST, "index.html")
+
 
 # ============================================================
 # START SERVER
@@ -992,11 +1007,11 @@ if __name__ == "__main__":
         print("=" * 70)
 
         app.run(
-            host="127.0.0.1",
-            port=5000,
-            debug=True,
-            use_reloader=False,
-        )
+    host="0.0.0.0",
+    port=int(os.environ.get("PORT", 5000)),
+    debug=False,
+    use_reloader=False,
+)
 
     except Exception as e:
 
