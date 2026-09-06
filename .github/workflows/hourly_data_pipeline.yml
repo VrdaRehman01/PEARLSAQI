@@ -269,7 +269,7 @@ jobs:
       # COMMIT DATABASE
       # ============================================================
 
-            - name: Commit updated database
+      - name: Commit updated database
         run: |
           set -e
 
