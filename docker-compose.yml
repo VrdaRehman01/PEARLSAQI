@@ -24,38 +24,9 @@
       - pearlsaqi_network
 
 
-  n8n:
-    build:
-      context: .
-      dockerfile: Dockerfile.n8n
-
-    container_name: pearlsaqi-n8n
-
-    restart: unless-stopped
-
-    user: root
-
-    ports:
-      - "5678:5678"
-
-    volumes:
-      - ./n8n_data:/home/node/.n8n
-      - /var/run/docker.sock:/var/run/docker.sock
-
-    environment:
-      N8N_HOST: localhost
-      N8N_PORT: 5678
-      N8N_PROTOCOL: http
-      NODE_ENV: production
-      GENERIC_TIMEZONE: Asia/Karachi
-      TZ: Asia/Karachi
-      NODES_EXCLUDE: "[]"
-
-    networks:
-      - pearlsaqi_network
+      
 
 
 networks:
-
   pearlsaqi_network:
     driver: bridge

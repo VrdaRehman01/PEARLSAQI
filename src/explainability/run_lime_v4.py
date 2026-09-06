@@ -60,7 +60,39 @@ def prepare_data(df):
     df = df.fillna(0)
 
     return df
+def explain_instance(model, X_row, feature_columns, top_n=5):
+    """
+    Generate a LIME explanation for one live prediction row
+    using the real V4 training dataset as LIME background data.
+    """
 
+    train_df = pd.read_parquet(TRAIN_FILE)
+    train_df = prepare_data(train_df)
+
+    X_train = train_df[feature_columns]
+
+    explainer = LimeTabularExplainer(
+        training_data=X_train.values,
+        feature_names=feature_columns,
+        mode="regression",
+        discretize_continuous=True,
+        random_state=42,
+        verbose=False,
+    )
+
+    explanation = explainer.explain_instance(
+        X_row.iloc[0].values,
+        model.predict,
+        num_features=top_n,
+    )
+
+    return [
+        {
+            "feature": feature,
+            "contribution": float(contribution),
+        }
+        for feature, contribution in explanation.as_list()
+    ]
 
 # ============================================================
 # MAIN

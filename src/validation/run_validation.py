@@ -29,12 +29,12 @@ def main():
     if not passed:
 
         raise SystemExit(
-            "\n❌ Pipeline stopped because "
+            "\nPipeline stopped because "
             "data validation failed."
         )
 
     print(
-        "\n✅ Dataset is ready for model training."
+        "\nDataset is ready for model training."
     )
 
 

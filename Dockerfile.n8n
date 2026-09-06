@@ -1,9 +1,0 @@
-FROM docker:cli AS dockercli
-
-FROM n8nio/n8n:latest
-
-USER root
-
-COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
-
-USER node

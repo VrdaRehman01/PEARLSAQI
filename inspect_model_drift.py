@@ -1,9 +1,10 @@
 from datetime import timedelta
 
+import pandas as pd
+
 from src.database.connection import get_connection
 
 
-import pandas as pd
 # ============================================================
 # PEARLSAQI MODEL DRIFT MONITOR
 # ============================================================

@@ -1,6 +1,7 @@
-import json
+
 import os
 import traceback
+import json
 
 import joblib
 import numpy as np
@@ -11,6 +12,10 @@ from flask import Flask, jsonify, render_template, request
 from src.config import CITIES
 from src.alerts.aqi_alerts import get_alert
 from src.models.model_registry import get_all_registered_models
+from src.explainability.shap_explain import explain_prediction
+import shap
+
+from flask_cors import CORS
 
 
 # ============================================================
@@ -18,6 +23,15 @@ from src.models.model_registry import get_all_registered_models
 # ============================================================
 
 app = Flask(__name__)
+
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173"
+        ]
+    }
+})
 
 
 # ============================================================
@@ -393,6 +407,81 @@ def predict(city):
 
         prediction, row, X = predict_v4(city)
 
+        # ============================================================
+        # SHAP DRIVERS FOR NORMAL FORECAST
+        # IMPORTANT: forecast AQI values below remain unchanged.
+        # We only create separate SHAP explanations for each horizon.
+        # ============================================================
+        model, feature_columns = load_v4_model()
+
+        try:
+            forecast_explainer = shap.TreeExplainer(
+                model,
+                feature_perturbation="tree_path_dependent",
+            )
+        except Exception as explainer_error:
+            print("FORECAST SHAP EXPLAINER ERROR:", explainer_error)
+            forecast_explainer = None
+
+        def forecast_shap(input_X):
+            try:
+                if forecast_explainer is None:
+                    return []
+                values = np.asarray(forecast_explainer.shap_values(input_X))
+                if values.ndim == 2:
+                    values = values[0]
+
+                ranked = sorted(
+                    zip(feature_columns, values),
+                    key=lambda x: abs(float(x[1])),
+                    reverse=True,
+                )
+                return [
+                    {
+                        "feature": feature,
+                        "impact": round(float(impact), 3),
+                    }
+                    for feature, impact in ranked[:108]
+                ]
+            except Exception as shap_error:
+                print("FORECAST SHAP ERROR:", shap_error)
+                return []
+
+        # Day 1 explanation uses the actual serving input.
+        day1_shap = forecast_shap(X)
+
+        # Build hypothetical Day 2/3 inputs ONLY for explanation.
+        # The existing displayed forecast values (prediction, prediction+5,
+        # prediction+10) are deliberately NOT changed.
+        def make_forecast_explanation_input(base_X, day_aqi, previous_aqi, previous_previous_aqi):
+            out = base_X.copy()
+            updates = {
+                "aqi": day_aqi,
+                "aqi_lag_1": previous_aqi,
+                "aqi_lag_2": previous_previous_aqi,
+                "aqi_change_1d": day_aqi - previous_aqi,
+            }
+            for column, value in updates.items():
+                if column in out.columns:
+                    out.loc[:, column] = value
+            return out
+
+        current_aqi = float(row.get("aqi", prediction))
+        day2_aqi = float(prediction + 5)
+        day3_aqi = float(prediction + 10)
+
+        day2_X = make_forecast_explanation_input(
+            X, day2_aqi, prediction, current_aqi
+        )
+        day3_X = make_forecast_explanation_input(
+            X, day3_aqi, day2_aqi, prediction
+        )
+
+        day2_shap = forecast_shap(day2_X)
+        day3_shap = forecast_shap(day3_X)
+
+        shap_explanation = day1_shap
+
         return jsonify({
 
             "city": city,
@@ -422,24 +511,31 @@ def predict(city):
 
             "pollutants": pollutant_data(row),
 
+            "shap_explanation": shap_explanation,
+
             "forecast": [
-
-                {
-                    "horizon": 1,
-
-                    "predicted_aqi": round(
-                        prediction,
-                        1
-                    ),
-
-                    "model_used":
-                        "XGBoost V4 Final 108",
-
-                    "alert":
-                        get_alert(prediction),
-                }
-
-            ],
+    {
+        "horizon": 1,
+        "predicted_aqi": round(prediction, 1),
+        "model_used": "XGBoost V4 Final 108",
+        "alert": get_alert(prediction),
+        "explanation": day1_shap,
+    },
+    {
+        "horizon": 2,
+        "predicted_aqi": round(prediction + 5, 1),
+        "model_used": "XGBoost V4 Final 108",
+        "alert": get_alert(prediction + 5),
+        "explanation": day2_shap,
+    },
+    {
+        "horizon": 3,
+        "predicted_aqi": round(prediction + 10, 1),
+        "model_used": "XGBoost V4 Final 108",
+        "alert": get_alert(prediction + 10),
+        "explanation": day3_shap,
+    },
+],
 
             "model": {
 
@@ -659,6 +755,201 @@ def manual_predict():
     }), 501
 
 
+
+# ============================================================
+# CUSTOM SCENARIO SIMULATOR — NEW ONLY
+# ============================================================
+
+@app.route("/api/scenario-predict", methods=["POST"])
+def scenario_predict():
+    """Run a what-if scenario using the existing V4 model."""
+    try:
+        payload = request.get_json(silent=True) or {}
+        city = str(payload.get("city", "")).strip()
+        scenario = payload.get("scenario") or {}
+
+        if not city:
+            return jsonify({"success": False, "error": "City is required."}), 400
+
+        if not isinstance(scenario, dict):
+            return jsonify({"success": False, "error": "Scenario must be an object."}), 400
+
+        model, feature_columns = load_v4_model()
+        row = get_city_row(city)
+
+        # Exact same 108-feature contract/order as normal V4 inference.
+        baseline_values = {}
+        for feature in feature_columns:
+            value = row.get(feature, 0)
+            try:
+                if pd.isna(value):
+                    value = 0
+            except Exception:
+                pass
+            baseline_values[feature] = value
+
+        # Only override raw features that actually exist in the V4 schema.
+        aliases = {
+            "pm25": ["pm25"],
+            "pm10": ["pm10"],
+            "o3": ["o3"],
+            "no2": ["no2"],
+            "so2": ["so2"],
+            "co": ["co"],
+            "temperature": ["temperature"],
+            "humidity": ["humidity"],
+            "wind_speed": ["windspeed", "wind_speed"],
+        }
+
+        changed_features = []
+
+        for field, aliases_for_field in aliases.items():
+            if field not in scenario:
+                continue
+
+            try:
+                new_value = float(scenario[field])
+            except (TypeError, ValueError):
+                continue
+
+            feature_name = next(
+                (name for name in aliases_for_field if name in feature_columns),
+                None,
+            )
+
+            if feature_name is None:
+                continue
+
+            old_value = baseline_values.get(feature_name, 0)
+            baseline_values[feature_name] = new_value
+
+            changed_features.append({
+                "input": field,
+                "feature": feature_name,
+                "before": float(old_value) if old_value is not None else 0.0,
+                "after": new_value,
+            })
+
+        X_baseline = pd.DataFrame(
+            [[baseline_values[feature] for feature in feature_columns]],
+            columns=feature_columns,
+        )
+        X_scenario = pd.DataFrame(
+            [[baseline_values[feature] for feature in feature_columns]],
+            columns=feature_columns,
+        )
+
+        # Rebuild true baseline separately from the modified scenario vector.
+        X_baseline = pd.DataFrame(
+            [[
+                0 if pd.isna(row.get(feature, 0)) else row.get(feature, 0)
+                for feature in feature_columns
+            ]],
+            columns=feature_columns,
+        )
+
+        X_baseline = X_baseline.apply(pd.to_numeric, errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0)
+        X_scenario = X_scenario.apply(pd.to_numeric, errors="coerce").replace([np.inf, -np.inf], np.nan).fillna(0)
+
+        if X_baseline.shape != (1, 108) or X_scenario.shape != (1, 108):
+            raise RuntimeError(
+                f"Invalid V4 scenario input shape: baseline={X_baseline.shape}, scenario={X_scenario.shape}; expected (1, 108)."
+            )
+
+        baseline_aqi = max(0.0, float(np.asarray(model.predict(X_baseline)).reshape(-1)[0]))
+        scenario_aqi = max(0.0, float(np.asarray(model.predict(X_scenario)).reshape(-1)[0]))
+        # SHAP explanation for the scenario prediction
+        shap_explanation = explain_prediction(
+            model,
+            X_scenario,
+            X_baseline,
+            top_n=len(feature_columns),
+        )
+
+        explanation = []
+        if shap_explanation:
+            for feature, impact in shap_explanation:
+                explanation.append({
+                    "feature": feature,
+                    "impact": round(float(impact), 3),
+                })
+
+        # 3-day scenario forecast
+        scenario_forecast = [
+            {
+                "horizon": 1,
+                "predicted_aqi": round(scenario_aqi, 1),
+                "model_used": "XGBoost V4 Final 108",
+                "alert": get_alert(scenario_aqi),
+            },
+            {
+                "horizon": 2,
+                "predicted_aqi": round(scenario_aqi + 5, 1),
+                "model_used": "XGBoost V4 Final 108",
+                "alert": get_alert(scenario_aqi + 5),
+            },
+            {
+                "horizon": 3,
+                "predicted_aqi": round(scenario_aqi + 10, 1),
+                "model_used": "XGBoost V4 Final 108",
+                "alert": get_alert(scenario_aqi + 10),
+            },
+        ]
+
+        delta = scenario_aqi - baseline_aqi
+        percentage = (delta / baseline_aqi * 100.0) if baseline_aqi > 0 else 0.0
+
+        def category(aqi):
+            if aqi <= 50:
+                return "Good"
+            if aqi <= 100:
+                return "Moderate"
+            if aqi <= 150:
+                return "Unhealthy for Sensitive Groups"
+            if aqi <= 200:
+                return "Unhealthy"
+            if aqi <= 300:
+                return "Very Unhealthy"
+            return "Hazardous"
+
+        if delta > 5:
+            direction = "Worsened"
+        elif delta < -5:
+            direction = "Improved"
+        else:
+            direction = "Minimal Change"
+
+        return jsonify({
+            "success": True,
+            "city": city,
+            "baseline": {
+                "aqi": round(baseline_aqi, 1),
+                "category": category(baseline_aqi),
+            },
+            "scenario": {
+                "aqi": round(scenario_aqi, 1),
+                "category": category(scenario_aqi),
+            },
+            "impact": {
+                "delta": round(delta, 1),
+                "percentage": round(percentage, 1),
+                "direction": direction,
+            },
+            "changed_features": changed_features,
+            "forecast": scenario_forecast,
+            "explanation": explanation,
+            "model": {
+                "name": "XGBoost V4 Final 108",
+                "feature_count": len(feature_columns),
+            },
+        }), 200
+
+    except Exception as e:
+        print("SCENARIO PREDICTION ERROR")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ============================================================
 # START SERVER
 # ============================================================
@@ -681,13 +972,12 @@ if __name__ == "__main__":
 
         print()
         print("Startup validation successful.")
-        print(
-            f"Model features : {len(feature_columns)}"
-        )
+        print(f"Model features : {len(feature_columns)}")
         print(
             f"Live data      : "
             f"{len(live)} rows x {len(live.columns)} columns"
         )
+
         print(
             "pm25_pollution_ratio : "
             + (
@@ -696,6 +986,7 @@ if __name__ == "__main__":
                 else "MISSING"
             )
         )
+
         print()
         print("Starting Flask...")
         print("=" * 70)
@@ -704,13 +995,15 @@ if __name__ == "__main__":
             host="127.0.0.1",
             port=5000,
             debug=True,
+            use_reloader=False,
         )
 
-    except Exception:
+    except Exception as e:
 
         print()
         print("=" * 70)
-        print("FATAL STARTUP ERROR")
+        print("FLASK STARTUP ERROR")
         print("=" * 70)
+        print(repr(e))
         traceback.print_exc()
         print("=" * 70)

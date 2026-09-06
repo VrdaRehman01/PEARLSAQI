@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.database.repositories.prediction_repository import (
     get_latest_predictions,
     get_all_forecasts,
-    get_forecast_performance,
 )
 
 
@@ -20,7 +19,7 @@ from src.database.repositories.prediction_repository import (
 
 app = FastAPI(
     title="AQI Predictor API",
-    description="AI-powered next-day AQI prediction API",
+    description="AI-powered 24-hour, 48-hour and 72-hour AQI forecasting API",
     version="1.0.0",
 )
 
@@ -153,7 +152,7 @@ def health():
         "status": "healthy",
         "service": "AQI Predictor API",
         "model": "XGBoost",
-        "model_type": "next-day AQI regression"
+        "model_type": "24/48/72-hour recursive AQI forecasting"
     }
 
 
@@ -243,53 +242,6 @@ def forecasts():
         "horizons": [1, 2, 3],
         "forecasts": results,
     }
-
-
-# ============================================================
-# V9 FORECAST PERFORMANCE
-# ============================================================
-
-@app.get("/forecast-performance")
-def forecast_performance():
-
-    df = get_forecast_performance()
-
-    if df.empty:
-        raise HTTPException(
-            status_code=503,
-            detail="No forecast performance data is currently available."
-        )
-
-    results = []
-
-    horizon_labels = {
-        1: "24h",
-        2: "48h",
-        3: "72h",
-    }
-
-    for _, row in df.iterrows():
-
-        horizon = int(row["horizon"])
-
-        results.append({
-            "horizon": horizon,
-            "horizon_label": horizon_labels.get(
-                horizon,
-                f"{horizon * 24}h"
-            ),
-            "evaluated_rows": int(row["evaluated_rows"]),
-            "mae": float(row["mae"]),
-            "rmse": float(row["rmse"]),
-        })
-
-    return {
-        "model": "PearlsAQI-V9-XGBoost",
-        "updated_at": datetime.now().isoformat(),
-        "performance": results,
-    }
-
-
 
 # ============================================================
 # AVAILABLE CITIES
