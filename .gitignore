@@ -27,3 +27,7 @@ models/
 *before_*
 *BROKEN*
 *WORKING_BACKUP*
+
+# Local deployment safety backups
+frontend/src/App.jsx.before-streamlit-deploy
+frontend/vite.config.js.before-streamlit-deploy
