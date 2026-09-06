@@ -828,6 +828,15 @@ The Air Quality Insights interface combines pollution breakdowns, health guidanc
 
 ---
 
+# 🎥 Project Demo
+
+See PEARLSAQI in action:
+
+[▶️ Watch the full dashboard demonstration](screenshots/Project%20Demo.mp4)
+
+The demo showcases the complete PEARLSAQI workflow, including live AQI monitoring, city exploration, Pakistan-wide AQI mapping, 24/48/72-hour forecasting, air-quality insights, custom scenario simulation, and SHAP-based model explainability.
+---
+
 # ⚙️ Automation
 
 GitHub Actions is the final automation layer used by the project.
