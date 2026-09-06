@@ -1,151 +1,29 @@
-﻿# ============================================================
-# PYTHON
-# ============================================================
-
-.venv/
-.venv_tf/
+﻿.venv_tf/
 venv/
+.venv/
+frontend/node_modules/
+frontend/dist/
 __pycache__/
 *.pyc
-*.pyo
-
-# ============================================================
-# ENVIRONMENT / SECRETS
-# ============================================================
-
-.env
-_env
-
-# ============================================================
-# LOCAL DATABASE
-# ============================================================
-
-database/*.duckdb
-database/*.db
-database/*.sqlite
-database/*.sqlite3
-
-# Keep database directory itself
-!database/.gitkeep
-
-# ============================================================
-# BACKUPS
-# ============================================================
-
-BACKUPS/
-
-# ============================================================
-# GENERATED / RUNTIME DATA
-# ============================================================
-
-logs/
-n8n_data/
-
-# ============================================================
-# GENERATED MODEL / FORECAST ARTIFACTS
-# ============================================================
-
-models/
-
-# ============================================================
-# TEMPORARY / CACHE
-# ============================================================
-
-*.tmp
-*.temp
-.DS_Store
-
-# ============================================================
-# IDE
-# ============================================================
-
-.vscode/
-.idea/
-
-# ============================================================
-# NOTEBOOK CHECKPOINTS
-# ============================================================
-
+.pytest_cache/
 .ipynb_checkpoints/
+.env
+.env.*
+!.env.example
 
-# ============================================================
-# LOCAL / DEBUG FILES
-# ============================================================
-
-*.log
-
-# ============================================================
-# LEGACY / LOCAL DATA ARTIFACTS
-# ============================================================
-
-data/*
-!data/.gitkeep
-!data/raw/
-!data/raw/.gitkeep
-!data/historical/
-!data/historical/.gitkeep
-!data/features/
-!data/features/.gitkeep
-
-# ============================================================
-# LOCAL PYTHON ENVIRONMENTS
-# ============================================================
-
-.venv/
-.venv_tf/
-venv/
-
-# ============================================================
-# LOCAL DATABASES / BACKUPS
-# ============================================================
-
-database/*.duckdb
+# Project data / generated artifacts
+data/
+database/
+analytics/
+logs/
 BACKUPS/
 
-# ============================================================
-# LOCAL MODEL ARTIFACTS
-# ============================================================
-
+# Model artifacts
 models/
 
-# ============================================================
-# FRONTEND DEPENDENCIES
-# ============================================================
-
-frontend/node_modules/
-
-# ============================================================
-# LOCAL LOGS
-# ============================================================
-
-logs/
-*.log
-
-# ============================================================
-# OLD / BACKUP PROJECT FILES
-# ============================================================
-
-analytics/*.parquet
-data/raw/*
-!data/raw/.gitkeep
-
-*_before_*.py
-*_before_*.bat
-*_backup.py
-*_WORKING_BACKUP.py
-*_BROKEN_*.py
-
-n8n_workflow_backup.json
-weather_service_backup.txt
-
-docker-compose.before-*.yml
-
-# Analysis artifacts
-analytics/*.parquet
-
-# Large legacy model artifacts
-models/registry/random_forest_h*/
-models/registry/deep_learning_h*/
-models/registry/ridge_h*/
-
-database/aqi.duckdb
+# Temporary / backup source files
+*backup*
+*BACKUP*
+*before_*
+*BROKEN*
+*WORKING_BACKUP*
