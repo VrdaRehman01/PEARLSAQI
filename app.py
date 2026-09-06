@@ -53,7 +53,7 @@ MODEL_FILE = os.path.join(
     "benchmark",
     "v4",
     "final_candidate",
-    "xgboost_v4_final_108.pkl",
+    "xgboost_v4_final_108.pkl"
 )
 
 FEATURE_FILE = os.path.join(
