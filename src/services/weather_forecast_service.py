@@ -60,6 +60,8 @@ class WeatherForecastService:
     )
 
     FORECAST_DAYS = 3
+    # V9 needs the forecast-origin date as the first recursive weather row.
+    WEATHER_FORECAST_DAYS = 4
 
     TIMEZONE = "Asia/Karachi"
 
@@ -124,14 +126,11 @@ class WeatherForecastService:
 
         today = date.today()
 
-        start_date = (
-            today
-            + timedelta(days=1)
-        )
+        start_date = today
 
         end_date = (
             today
-            + timedelta(days=self.FORECAST_DAYS)
+            + timedelta(days=self.WEATHER_FORECAST_DAYS - 1)
         )
 
         params = {
@@ -281,8 +280,7 @@ class WeatherForecastService:
             + timedelta(days=i)
 
             for i in range(
-                1,
-                self.FORECAST_DAYS + 1,
+                self.WEATHER_FORECAST_DAYS,
             )
         ]
 
@@ -672,9 +670,9 @@ class WeatherForecastService:
 
         today = date.today()
 
-        start_date = today + timedelta(days=1)
+        start_date = today
 
-        end_date = today + timedelta(days=self.FORECAST_DAYS)
+        end_date = today + timedelta(days=self.WEATHER_FORECAST_DAYS - 1)
 
 
         print()
@@ -794,7 +792,7 @@ class WeatherForecastService:
 
         expected_rows = (
             expected_cities
-            * self.FORECAST_DAYS
+            * self.WEATHER_FORECAST_DAYS
         )
 
         if len(df) != expected_rows:

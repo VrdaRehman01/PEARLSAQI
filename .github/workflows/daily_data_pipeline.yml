@@ -111,30 +111,31 @@ jobs:
 
           git commit -m "chore: daily production database update"
 
-          for attempt in 1 2 3; do
+          if git push origin HEAD:${GITHUB_REF_NAME}; then
+            echo "Push succeeded."
+            exit 0
+          fi
 
-            echo "Push attempt $attempt/3"
+          echo "Remote changed while pipeline was running."
+          echo "Refreshing from latest main and regenerating database..."
 
-            if git push origin HEAD:${GITHUB_REF_NAME}; then
-              echo "Push succeeded."
-              exit 0
-            fi
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
 
-            if [ "$attempt" -eq 3 ]; then
-              echo "Push failed after 3 attempts."
-              exit 1
-            fi
+          python -m src.pipelines.daily_forecast_pipeline
 
-            git fetch origin "${GITHUB_REF_NAME}"
+          git add -f database/aqi.duckdb
 
-            git rebase "origin/${GITHUB_REF_NAME}" || {
-              echo "Rebase failed."
-              exit 1
-            }
+          if git diff --cached --quiet; then
+            echo "No database changes after refresh."
+            exit 0
+          fi
 
-            sleep 10
+          git commit -m "chore: daily production database update"
 
-          done
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+          echo "Database push succeeded after refresh."
 
       - name: Pipeline complete
         run: |

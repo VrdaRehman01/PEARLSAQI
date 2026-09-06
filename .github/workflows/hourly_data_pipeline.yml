@@ -269,7 +269,7 @@ jobs:
       # COMMIT DATABASE
       # ============================================================
 
-      - name: Commit updated database
+            - name: Commit updated database
         run: |
           set -e
 
@@ -285,38 +285,32 @@ jobs:
 
           git commit -m "chore: update hourly AQI database"
 
-          # --------------------------------------------------------
-          # Push with retry in case another database writer changed
-          # the remote while this job was running.
-          # --------------------------------------------------------
+          if git push origin HEAD:${GITHUB_REF_NAME}; then
+            echo "Database push succeeded."
+            exit 0
+          fi
 
-          for attempt in 1 2 3; do
+          echo "Remote changed while pipeline was running."
+          echo "Refreshing from latest main and regenerating database..."
 
-            echo "Push attempt $attempt/3"
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard "origin/${GITHUB_REF_NAME}"
 
-            if git push origin HEAD:${GITHUB_REF_NAME}; then
-              echo "Database push succeeded."
-              exit 0
-            fi
+          python -m src.pipelines.hourly_ingestion_pipeline
+          python -m src.pipelines.hourly_to_daily_pipeline
 
-            if [ "$attempt" -eq 3 ]; then
-              echo "Git push failed after 3 attempts."
-              exit 1
-            fi
+          git add -f database/aqi.duckdb
 
-            echo "Push failed."
-            echo "Rebasing against remote..."
+          if git diff --cached --quiet; then
+            echo "No database changes after refresh."
+            exit 0
+          fi
 
-            git fetch origin "${GITHUB_REF_NAME}"
+          git commit -m "chore: update hourly AQI database"
 
-            git rebase "origin/${GITHUB_REF_NAME}" || {
-              echo "Rebase failed."
-              exit 1
-            }
+          git push origin HEAD:${GITHUB_REF_NAME}
 
-            sleep 10
-
-          done
+          echo "Database push succeeded after refresh."
 
       # ============================================================
       # COMPLETE
