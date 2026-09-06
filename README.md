@@ -82,6 +82,7 @@ The multi-city design allows the same forecasting platform to provide city-speci
 - [Explainable AI](#-explainable-ai)
 - [Backend & API](#-backend--api)
 - [Frontend Dashboard](#-frontend-dashboard)
+- [Dashboard Screenshots](#-dashboard-screenshots)
 - [Automation](#-automation)
 - [Monitoring](#-monitoring)
 - [Project Structure](#-project-structure)
@@ -751,6 +752,82 @@ Model explanations are surfaced through the dashboard so users can investigate w
 
 ---
 
+# 📸 Dashboard Screenshots
+
+The following screenshots showcase the main user-facing interfaces of PEARLSAQI.
+
+> **Screenshot assets:** All screenshots are stored in the repository's `screenshots/` folder. The filenames below match the project assets exactly.
+
+## 🏠 Overview Dashboard
+
+<p align="center">
+  <img src="screenshots/dashboard.png" alt="PEARLSAQI Overview Dashboard" width="100%">
+</p>
+
+The main overview brings together the selected city's live AQI, pollutant readings, weather conditions, forecast information, monitored-city cards, and key air-quality indicators in a single dashboard.
+
+---
+
+## 🏙️ Cities Dashboard
+
+<p align="center">
+  <img src="screenshots/cities.png" alt="PEARLSAQI Cities Dashboard" width="100%">
+</p>
+
+The Cities interface provides a dedicated view of monitored Pakistani locations, allowing users to explore city-level AQI conditions and compare air-quality status across the supported coverage area.
+
+---
+
+## 🔮 AQI Forecast
+
+<p align="center">
+  <img src="screenshots/forecast.png" alt="PEARLSAQI AQI Forecast" width="100%">
+</p>
+
+The AQI Forecast interface presents the production model's 24-hour, 48-hour, and 72-hour forecasting horizons together with forecast trends and supporting insights.
+
+---
+
+## 🇵🇰 Pakistan AQI Map
+
+<p align="center">
+  <img src="screenshots/pak%20map.png" alt="PEARLSAQI Pakistan AQI Map" width="100%">
+</p>
+
+The Pakistan AQI view provides a geographic representation of live air-quality conditions across the monitored Pakistani cities, including city markers and AQI category information.
+
+---
+
+## 🧪 Custom Scenario Simulator
+
+<p align="center">
+  <img src="screenshots/custom%20simulator.png" alt="PEARLSAQI Custom Scenario Simulator" width="100%">
+</p>
+
+The Custom Scenario Simulator lets users adjust pollution and weather variables and run a what-if simulation to investigate their potential effect on predicted AQI.
+
+---
+
+## 🔍 Model Explainability
+
+<p align="center">
+  <img src="screenshots/explainability.png" alt="PEARLSAQI Model Explainability" width="100%">
+</p>
+
+The Model Explainability interface exposes feature-level model contributions, including SHAP drivers across the forecast horizons, so users can inspect which engineered features are contributing to predicted AQI.
+
+---
+
+## 📊 Air Quality Insights
+
+<p align="center">
+  <img src="screenshots/insights.png" alt="PEARLSAQI Air Quality Insights" width="100%">
+</p>
+
+The Air Quality Insights interface combines pollution breakdowns, health guidance, city comparison, a monitored-city directory, live AQI ranking, and model-driven air-quality information.
+
+---
+
 # ⚙️ Automation
 
 GitHub Actions is the final automation layer used by the project.
@@ -813,6 +890,15 @@ The repository is organized around separate data, ML, application, and operation
 aqi-predictor-v4/
 │
 ├── backend/
+│
+├── screenshots/
+│   ├── dashboard.png
+│   ├── cities.png
+│   ├── forecast.png
+│   ├── pak map.png
+│   ├── custom simulator.png
+│   ├── explainability.png
+│   └── insights.png
 │
 ├── frontend/
 │   ├── public/
