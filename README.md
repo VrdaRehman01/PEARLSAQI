@@ -12,6 +12,7 @@
   <img alt="React" src="https://img.shields.io/badge/Frontend-React-61DAFB?logo=react">
   <img alt="Vite" src="https://img.shields.io/badge/Build-Vite-646CFF?logo=vite">
   <img alt="GitHub Actions" src="https://img.shields.io/badge/Automation-GitHub%20Actions-2088FF?logo=githubactions">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-green"></a>
 </p>
 
 <p align="center">
@@ -57,6 +58,7 @@ PEARLSAQI is an end-to-end air quality platform for Pakistan. It collects hourly
 - [Project Structure](#project-structure)
 - [Technology Stack](#technology-stack)
 - [Limitations & Future Work](#limitations--future-work)
+- [License & Data Attribution](#license--data-attribution)
 
 ---
 
@@ -445,6 +447,20 @@ PEARLSAQI/
 - **Single model for all horizons.** Dedicated 48 h and 72 h models may reduce long-horizon error.
 - **Free hosting.** Render's free plan sleeps after 15 idle minutes (the first visit then takes about a minute), and Open-Meteo rate-limits it, so the live site shows the latest stored hour rather than the current one.
 - **Coverage.** 12 cities; the pipeline is designed to add more.
+
+---
+
+## License & Data Attribution
+
+The code in this repository is released under the [MIT License](LICENSE). © 2026 Warda Rehman.
+
+The data it uses comes from third parties, under their own terms:
+
+- **Air quality and weather:** [Open-Meteo](https://open-meteo.com/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Air-quality data is based on the [Copernicus Atmosphere Monitoring Service (CAMS)](https://atmosphere.copernicus.eu/).
+- **Ground-station readings (optional):** [World Air Quality Index Project](https://aqicn.org/), under its [terms of use](https://aqicn.org/api/tos/).
+- **Map tiles:** © [Esri](https://www.esri.com/) and © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, displayed with [Leaflet](https://leafletjs.com/).
+
+AQI values and forecasts are model estimates for information only, not official health advice. For official readings, consult the Punjab Environmental Protection Department or your local authority.
 
 ---
 
