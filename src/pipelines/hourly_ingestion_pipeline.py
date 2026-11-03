@@ -2,7 +2,7 @@
 import sys
 import requests
 import duckdb
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 # ============================================================
 # PEARLSAQI HOURLY LIVE INGESTION
@@ -121,6 +121,23 @@ CITIES = [
 ]
 
 
+PAST_DAYS = int(os.environ.get("HOURLY_PAST_DAYS", "2"))
+
+# Open-Meteo returns local times for timezone=Asia/Karachi (UTC+5, no DST).
+PAKISTAN_TZ = timezone(timedelta(hours=5))
+
+
+def is_future_hour(timestamp):
+    """
+    True for hours later than the current Pakistan hour. Those values
+    are forecasts and must not be stored as observations.
+    """
+
+    now = datetime.now(PAKISTAN_TZ).replace(tzinfo=None)
+
+    return datetime.fromisoformat(timestamp) > now
+
+
 # ============================================================
 # DATABASE
 # ============================================================
@@ -200,7 +217,7 @@ def fetch_air_quality(city):
         "longitude": city["longitude"],
 
         "hourly": (
-            "european_aqi,"
+            "us_aqi,"
             "pm2_5,"
             "pm10,"
             "nitrogen_dioxide,"
@@ -211,8 +228,9 @@ def fetch_air_quality(city):
 
         "timezone": "Asia/Karachi",
 
-        # We only need recent/current data.
-        "past_days": 2,
+        # Recent/current data; HOURLY_PAST_DAYS (max 92) re-fetches
+        # older hours, e.g. to repair a backfill.
+        "past_days": PAST_DAYS,
 
         "forecast_days": 1,
     }
@@ -247,7 +265,7 @@ def fetch_weather(city):
 
         "timezone": "Asia/Karachi",
 
-        "past_days": 2,
+        "past_days": PAST_DAYS,
 
         "forecast_days": 1,
     }
@@ -285,7 +303,7 @@ def insert_air_quality(
 
     values = {
         "aqi": hourly.get(
-            "european_aqi",
+            "us_aqi",
             [],
         ),
 
@@ -324,6 +342,9 @@ def insert_air_quality(
 
     for i, timestamp in enumerate(times):
 
+        if is_future_hour(timestamp):
+            continue
+
         row = [
             city["city_id"],
             city["city_name"],
@@ -354,7 +375,7 @@ def insert_air_quality(
 
         result = conn.execute(
             """
-            INSERT OR IGNORE INTO aqi_hourly (
+            INSERT OR REPLACE INTO aqi_hourly (
                 city_id,
                 city_name,
                 timestamp,
@@ -422,6 +443,9 @@ def insert_weather(
 
     for i, timestamp in enumerate(times):
 
+        if is_future_hour(timestamp):
+            continue
+
         row = [
             city["city_id"],
             city["city_name"],
@@ -448,7 +472,7 @@ def insert_weather(
 
         result = conn.execute(
             """
-            INSERT OR IGNORE INTO weather_hourly (
+            INSERT OR REPLACE INTO weather_hourly (
                 city_id,
                 city_name,
                 timestamp,

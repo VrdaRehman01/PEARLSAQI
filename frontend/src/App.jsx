@@ -36,23 +36,30 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  LabelList
+  LabelList,
+  ReferenceLine,
 } from "recharts";
 
 import {
   MapContainer,
   CircleMarker,
+  Tooltip as MapTooltip,
   Popup,
   TileLayer,
   GeoJSON,
 
 } from "react-leaflet";
 
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 
 
 const API = "/api";
+
+// Leaflet's own attribution link would navigate the dashboard away.
+L.Control.Attribution.prototype.options.prefix =
+  '<a href="https://leafletjs.com" target="_blank" rel="noopener noreferrer">Leaflet</a>';
 
 
 const CITIES = {
@@ -196,6 +203,17 @@ const LANDMARK_VIDEOS = {
 const CITY_NAMES = Object.keys(CITIES);
 
 
+/* Sidebar entries and the page sections they scroll to. */
+const SECTION_TARGETS = {
+  Overview: "overview",
+  Cities: "cities",
+  "Scenario Lab": "scenario-lab",
+  "Pakistan AQI": "pakistan-aqi",
+  "AQI Forecast": "aqi-forecast",
+  "Air Quality Insights": "air-quality-insights",
+  "Model Explainability": "model-explainability",
+};
+
 function num(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -225,6 +243,56 @@ function aqiStatus(aqi) {
 }
 
 
+
+/* Category colours, shared with the map legend in App.css. */
+const AQI_COLORS = {
+  good: "#48e293",
+  moderate: "#e6d43d",
+  sensitive: "#ff9f21",
+  unhealthy: "#ff6842",
+  "very-unhealthy": "#be6be8",
+  hazardous: "#ff4458",
+};
+
+/* WHO 2021 air quality guidelines (24-hour means; O3 is the 8-hour
+   peak-season value), in µg/m³ like the pollutant readings. */
+const WHO_GUIDELINES = {
+  pm25: ["PM2.5", 15],
+  pm10: ["PM10", 45],
+  no2: ["NO₂", 25],
+  so2: ["SO₂", 40],
+  o3: ["O₃", 100],
+  co: ["CO", 4000],
+};
+
+// The pollutant furthest above its WHO guideline.
+function mainConcern(data) {
+  return Object.entries(WHO_GUIDELINES)
+    .map(([key, [label, limit]]) => ({ label, ratio: Number(data?.[key]) / limit }))
+    .filter((item) => Number.isFinite(item.ratio))
+    .sort((a, b) => b.ratio - a.ratio)[0];
+}
+
+// Practical advice that scales with AQI (US EPA categories).
+function protectionAdvice(aqi) {
+  if (aqi <= 50) {
+    return { exercise: "Fine for everyone", mask: "Not needed", windows: "Open to ventilate" };
+  }
+  if (aqi <= 100) {
+    return { exercise: "Fine for most people", mask: "Not needed", windows: "Open, except at peak hours" };
+  }
+  if (aqi <= 150) {
+    return { exercise: "Sensitive groups: go easy", mask: "Sensitive groups: N95", windows: "Keep closed at peak hours" };
+  }
+  if (aqi <= 200) {
+    return { exercise: "Move it indoors", mask: "N95 outdoors", windows: "Keep closed" };
+  }
+  return { exercise: "Avoid outdoors", mask: "N95 essential", windows: "Keep closed, use a purifier" };
+}
+
+function aqiColor(aqi) {
+  return AQI_COLORS[statusClass(aqi)];
+}
 
 function statusClass(aqi) {
   if (aqi <= 50) return "good";
@@ -267,14 +335,97 @@ function getWeather(cityData, key) {
    AQI GAUGE
    ========================================================= */
 
-function Gauge({ value }) {
+/* Low (green) -> high (red) colour ramp shared by the gauge sweep and
+   its number, sampled by position on the 0–500 AQI scale. */
+const GAUGE_STOPS = [
+  [0, [54, 229, 143]],    // green
+  [0.2, [217, 220, 69]],  // yellow
+  [0.4, [255, 181, 46]],  // orange
+  [0.6, [255, 122, 61]],  // deep orange
+  [0.8, [255, 66, 101]],  // red
+  [1, [200, 30, 58]],     // dark red
+];
+
+function gaugeColor(t) {
+  const x = Math.max(0, Math.min(1, t));
+
+  for (let i = 1; i < GAUGE_STOPS.length; i += 1) {
+    const [end, to] = GAUGE_STOPS[i];
+
+    if (x <= end) {
+      const [start, from] = GAUGE_STOPS[i - 1];
+      const k = (x - start) / (end - start);
+      const rgb = from.map((c, j) => Math.round(c + (to[j] - c) * k));
+
+      return `rgb(${rgb.join(",")})`;
+    }
+  }
+
+  return `rgb(${GAUGE_STOPS.at(-1)[1].join(",")})`;
+}
+
+const GAUGE_SEGMENTS = 90;
+const GAUGE_START = 135; // degrees, bottom-left; sweeps 270° clockwise
+const GAUGE_SWEEP = 270;
+
+function gaugePoint(t, radius) {
+  const angle = ((GAUGE_START + GAUGE_SWEEP * t) * Math.PI) / 180;
+  return [130 + radius * Math.cos(angle), 130 + radius * Math.sin(angle)];
+}
+
+function gaugeSegments(upTo, radius) {
+  const count = Math.ceil(GAUGE_SEGMENTS * upTo);
+
+  return Array.from({ length: count }, (_, i) => {
+    const t0 = i / GAUGE_SEGMENTS;
+    // Overlap slightly so neighbouring segments leave no seams.
+    const t1 = Math.min(upTo, (i + 1.6) / GAUGE_SEGMENTS);
+    const [x0, y0] = gaugePoint(t0, radius);
+    const [x1, y1] = gaugePoint(t1, radius);
+
+    return (
+      <path
+        key={i}
+        className="gauge-segment"
+        d={`M ${x0} ${y0} A ${radius} ${radius} 0 0 1 ${x1} ${y1}`}
+        stroke={gaugeColor(t0)}
+      />
+    );
+  });
+}
+
+function liveCaption(live) {
+  const at = String(live?.observed_at || "");
+  const hour = at.length >= 16 ? at.slice(11, 16) : "";
+
+  if (live?.source === "station") {
+    return {
+      caption: `Station · ${hour || "latest"}`,
+      title: `Measured at ${live.station?.station ?? "nearest station"} (${live.station?.distance_km} km away). Source: World Air Quality Index project.`,
+    };
+  }
+
+  if (live?.source === "model_hourly") {
+    return {
+      caption: `AQI (US) · ${hour} PKT`,
+      title: "Current-hour estimate from the CAMS atmospheric model (Open-Meteo). Ground stations can read higher during local smog.",
+    };
+  }
+
+  return {
+    caption: "AQI (US) · Daily avg",
+    title: "Today's average from the PEARLSAQI database; live data is unavailable.",
+  };
+}
+
+function Gauge({ value, live }) {
+  const { caption, title: sourceTitle } = liveCaption(live);
   const safe = Math.max(0, Math.min(500, num(value)));
   const progress = safe / 500;
+  const color = gaugeColor(progress);
 
   const radius = 108;
-  const circumference = 2 * Math.PI * radius;
-  const arcLength = circumference * 0.75;
-  const dashOffset = arcLength * (1 - progress);
+  const [markerX, markerY] = gaugePoint(progress, radius);
 
   return (
     <div className="aqi-gauge">
@@ -282,84 +433,41 @@ function Gauge({ value }) {
       {/* GAUGE ARC + CENTER — SAME EXACT POSITION */}
       <div className="gauge-visual">
 
-
-        
-
         <svg
           className="gauge-svg"
           viewBox="0 0 260 260"
           role="img"
           aria-label={`AQI ${fmt(value)}`}
-          style={{ transform: "rotate(135.5deg)" }}
-
         >
-          <defs>
-            <linearGradient
-              id="aqiGaugeGradient"
-              x1="100%"
-              y1="100%"
-              x2="0%"
-              y2="50%"
-            >
-              <stop offset="0%" stopColor="#35e78d" />
-              <stop offset="25%" stopColor="#dce83f" />
-              <stop offset="50%" stopColor="#ffb52e" />
-              <stop offset="70%" stopColor="#ff633e" />
-              <stop offset="88%" stopColor="#d65bea" />
-              <stop offset="100%" stopColor="#ff4265" />
-            </linearGradient>
+          {/* Full scale, faded as one layer so overlaps don't stripe */}
+          <g opacity="0.18">
+            {gaugeSegments(1, radius)}
+          </g>
 
-            <filter
-              id="gaugeGlow"
-              x="-50%"
-              y="-50%"
-              width="200%"
-              height="200%"
-            >
-              <feGaussianBlur
-                stdDeviation="4"
-                result="blur"
-              />
+          {/* Filled up to the current AQI */}
+          <g>{gaugeSegments(progress, radius)}</g>
 
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          {/* FULL COLORED ARC */}
           <circle
-            cx="130"
-            cy="130"
-            r={radius}
-            className="gauge-progress"
-            transform="rotate(315 130 130)"
-            strokeDasharray={`${arcLength} ${circumference}`}
-            strokeDashoffset="0"
-          />
-
-          {/* ACTIVE AQI ARC */}
-          <circle
-            cx="130"
-            cy="130"
-            r={radius}
-            className="gauge-value"
-            transform="rotate(315 130 130) scale(1 -1)"
-            strokeDasharray={`${arcLength} ${circumference}`}
-            strokeDashoffset={dashOffset}
+            className="gauge-marker"
+            cx={markerX}
+            cy={markerY}
+            r="11"
+            fill={color}
           />
         </svg>
 
-        {/* BLACK CENTER CIRCLE */}
-
         {/* AQI CONTENT */}
         <div className="gauge-center">
-          <strong>{fmt(value)}</strong>
+          <strong className="gauge-number" style={{ "--gauge-color": color }}>
+            {fmt(value)}
+          </strong>
 
-          <small>AQI (US) · Live</small>
+          <small title={sourceTitle}>{caption}</small>
 
-          <span className={statusClass(value)}>
+          <span
+            className={`gauge-status ${statusClass(value)}`}
+            style={{ "--gauge-color": color }}
+          >
             {aqiStatus(value)}
           </span>
         </div>
@@ -378,15 +486,47 @@ function Gauge({ value }) {
    SPARKLINE
    ========================================================= */
 
-function MiniSpark({ variant = "green" }) {
+function MiniSpark({ variant = "green", series = [], title }) {
+  const points = series
+    .map((value, i) => [i, Number(value)])
+    .filter(([, value]) => Number.isFinite(value));
+
+  if (points.length < 2) {
+    return (
+      <svg
+        className={`spark ${variant} spark-empty`}
+        viewBox="0 0 100 28"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      />
+    );
+  }
+
+  const values = points.map(([, value]) => value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const last = series.length - 1 || 1;
+
+  // 3px top/bottom padding inside the 28px-high viewBox.
+  const d = points
+    .map(([i, value], n) => {
+      const x = (i / last) * 100;
+      const y = 25 - ((value - min) / span) * 22;
+      return `${n === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+
   return (
     <svg
       className={`spark ${variant}`}
       viewBox="0 0 100 28"
       preserveAspectRatio="none"
-      aria-hidden="true"
+      role="img"
+      aria-label={title}
     >
-      <path d="M0 23 C10 20,16 22,25 18 S39 8,48 14 S62 25,72 16 S84 8,100 6" />
+      <title>{title}</title>
+      <path d={d} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -400,6 +540,9 @@ function MetricCard({
   label,
   value,
   unit,
+  unitLabel,
+  series = [],
+  dates = [],
   index = 0,
 }) {
   const variants = [
@@ -441,6 +584,14 @@ function MetricCard({
 
       <MiniSpark
         variant={variant}
+        series={series}
+        title={
+          series.length > 1
+            ? `${label}, ${dates[0]} to ${dates.at(-1)}: ` +
+              series.map((v) => fmt(v)).join(", ") +
+              ` ${unitLabel ?? ""}`
+            : `${label}: no recent history`
+        }
       />
 
     </div>
@@ -547,6 +698,17 @@ function Panel({
 
 function CustomScenarioSimulator({ city, data, onResult, scenarioResult }) {
   const getDefaults = (value) => {
+  // Start from the daily values the model actually used, so an
+  // untouched run reproduces the baseline exactly.
+  if (value?.model_inputs) {
+    const inputs = value.model_inputs;
+
+    return Object.fromEntries(
+      ["pm25", "pm10", "o3", "no2", "so2", "co", "temperature", "humidity", "wind_speed"]
+        .map((key) => [key, Number(inputs[key] ?? 0)])
+    );
+  }
+
   const weather = value?.current_conditions || {};
 
   return {
@@ -581,6 +743,17 @@ function CustomScenarioSimulator({ city, data, onResult, scenarioResult }) {
 
   const [values, setValues] =
     useState(() => getDefaults(data));
+
+  // The simulator can mount before the city's data has loaded. Seed the
+  // inputs from the real conditions as soon as they arrive; otherwise the
+  // scenario compares the city against all-zero pollution.
+  const hasData = Boolean(data);
+  const [seeded, setSeeded] = useState(hasData);
+
+  if (hasData && !seeded) {
+    setSeeded(true);
+    setValues(getDefaults(data));
+  }
 
   const [preset, setPreset] =
     useState("Custom");
@@ -821,7 +994,7 @@ function CustomScenarioSimulator({ city, data, onResult, scenarioResult }) {
 
   const run = async () => {
 
-    if (!city) return;
+    if (!city || !hasData) return;
 
     setLoading(true);
     setError("");
@@ -830,7 +1003,7 @@ function CustomScenarioSimulator({ city, data, onResult, scenarioResult }) {
 
       const response =
   await fetch(
-    "http://127.0.0.1:5000/api/scenario-predict",
+  `${API}/scenario-predict`,
     {
       method: "POST",
 
@@ -866,9 +1039,7 @@ const payload =
       setResult(payload);
       onResult?.(payload);
 
-if (onResult) {
-  onResult(payload);
-}
+
     } catch (err) {
 
       console.error(
@@ -938,9 +1109,9 @@ if (onResult) {
     [
       "co",
       "CO",
-      "mg/m³",
+      "µg/m³",
       0,
-      50
+      10000
     ],
 
     [
@@ -1079,7 +1250,7 @@ if (onResult) {
 
       {/* MAIN SIMULATOR AREA */}
 
-      <div className="scenario-layout">
+      <div className="scenario-layout-vertical">
 
 
         {/* LEFT — CONTROLS */}
@@ -1095,8 +1266,9 @@ if (onResult) {
               </strong>
 
               <span>
-                Adjust values, then run
-                the simulation
+                Starts from today's daily averages (the
+                model's inputs). Adjust values, then run
+                the simulation.
               </span>
 
             </div>
@@ -1104,7 +1276,7 @@ if (onResult) {
           </div>
 
 
-          <div className="scenario-control-grid">
+          <div className="scenario-control-grid-3">
 
             {controls.map(
               ([
@@ -1116,7 +1288,6 @@ if (onResult) {
               ]) => {
 
                 const step =
-                  key === "co" ||
                   key === "temperature" ||
                   key === "wind_speed"
                     ? "0.1"
@@ -1228,7 +1399,8 @@ if (onResult) {
             onClick={run}
             disabled={
               loading ||
-              !city
+              !city ||
+              !hasData
             }
           >
 
@@ -1427,21 +1599,17 @@ if (onResult) {
                     {/* 5 — TOP CHANGED FEATURES */}
                     <div className="scenario-result-box features-box">
                       <span className="scenario-result-title">
-                        Top Changed Features
+                        Inputs Changed
                       </span>
 
                       <strong className="scenario-result-feature-count">
                         {Array.isArray(result?.changed_features)
                           ? result.changed_features.length
-                          : Object.keys(scenarioValues || {}).filter(
-                              (key) =>
-                                Number(scenarioValues?.[key]) !==
-                                Number(selectedData?.[key] ?? 0)
-                            ).length}
+                          : 0}
                       </strong>
 
                       <span className="scenario-feature-label">
-                        features modified
+                        of 9 inputs
                       </span>
                     </div>
                   </div>
@@ -1476,14 +1644,18 @@ if (onResult) {
 
         {/* LEFT — PREDICTION SUMMARY */}
         <div className="scenario-explain-left">
-          <div className="scenario-prediction-card">
+          <div className="scenario-prediction-card scenario-explain-card">
 
             <div className="scenario-prediction-heading">
               <strong>Prediction Summary</strong>
             </div>
 
             <div className="scenario-prediction-values">
-              <div className="scenario-prediction-value">
+              <div
+                className={`scenario-prediction-value aqi-${statusClass(
+                  scenarioResult?.baseline?.aqi ?? scenarioResult?.baseline_aqi ?? 0
+                )}`}
+              >
                 <span>BASELINE AQI</span>
                 <strong>
                   {Number(
@@ -1499,7 +1671,11 @@ if (onResult) {
 
               <div className="scenario-prediction-arrow">→</div>
 
-              <div className="scenario-prediction-value scenario-prediction-scenario">
+              <div
+                className={`scenario-prediction-value scenario-prediction-scenario aqi-${statusClass(
+                  scenarioResult?.scenario?.aqi ?? scenarioResult?.scenario_aqi ?? 0
+                )}`}
+              >
                 <span>SCENARIO AQI</span>
                 <strong>
                   {Number(
@@ -1599,38 +1775,12 @@ if (onResult) {
   </div>
 
 </div>
-            {/* IMPACT ANALYSIS */}
-            <div className="scenario-impact-card">
-              <div className="scenario-impact-heading">
-                <Zap size={17} />
-                <strong>Impact Analysis</strong>
-              </div>
-              <div className="scenario-impact-copy">
-                This scenario is predicted to{" "}
-                <b>
-                  {Number(
-                    scenarioResult?.impact?.delta ??
-                    scenarioResult?.delta ??
-                    0
-                  ) < -0.5
-                    ? "improve"
-                    : Number(
-                        scenarioResult?.impact?.delta ??
-                        scenarioResult?.delta ??
-                        0
-                      ) > 0.5
-                    ? "worsen"
-                    : "minimally change"}
-                </b>{" "}
-                air quality compared with the current baseline.
-              </div>
-            </div>
 
           </div>
         </div>
 
         {/* RIGHT — TOP FEATURE CONTRIBUTIONS */}
-        <div className="scenario-explain-right">
+        <div className="scenario-explain-right scenario-explain-card">
           <div className="scenario-explain-feature-head">
             <div>
               <strong>Top Feature Contributions</strong>
@@ -1783,6 +1933,33 @@ if (onResult) {
         </div>
       </div>
 
+            {/* IMPACT ANALYSIS */}
+            <div className="scenario-impact-card scenario-impact-wide">
+              <div className="scenario-impact-heading">
+                <Zap size={17} />
+                <strong>Impact Analysis</strong>
+              </div>
+              <div className="scenario-impact-copy">
+                This scenario is predicted to{" "}
+                <b>
+                  {Number(
+                    scenarioResult?.impact?.delta ??
+                    scenarioResult?.delta ??
+                    0
+                  ) < -0.5
+                    ? "improve"
+                    : Number(
+                        scenarioResult?.impact?.delta ??
+                        scenarioResult?.delta ??
+                        0
+                      ) > 0.5
+                    ? "worsen"
+                    : "minimally change"}
+                </b>{" "}
+                air quality compared with the current baseline.
+              </div>
+            </div>
+
       {/* SHAP INFO */}
       <div className="scenario-shap-premium-info">
         <div className="scenario-shap-info-icon">
@@ -1876,7 +2053,7 @@ if (onResult) {
                 <strong>DAY {item?.horizon ?? index + 1}</strong>
                 <small>
                   {new Date(
-                    Date.now() + index * 86400000
+                    item?.forecast_date ?? Date.now() + index * 86400000
                   ).toLocaleDateString("en-GB", {
                     weekday: "short",
                     day: "2-digit",
@@ -1895,13 +2072,186 @@ if (onResult) {
               </div>
 
               <p>
-                Predicted AQI for Day {index + 1}
+                Predicted daily average AQI
               </p>
             </div>
           );
         })}
       </div>
+
+      <HourlyOutlook city={city} />
     </section>
+  );
+}
+
+
+/* =========================================================
+   HOURLY OUTLOOK — last 12 h + next 36 h, best time outside
+   ========================================================= */
+
+const hourLabel = (stamp) => String(stamp).slice(11, 16);
+
+const dayHourLabel = (stamp) => {
+  const date = new Date(stamp);
+  const today = new Date();
+  const sameDay = date.toDateString() === today.toDateString();
+
+  return `${sameDay ? "Today" : date.toLocaleDateString("en-GB", { weekday: "short" })} ${hourLabel(stamp)}`;
+};
+
+// Cleanest 3-hour daytime window (06:00–21:00) in the next 24 hours.
+function bestWindow(hours) {
+  const upcoming = hours.filter((h) => h.is_forecast).slice(0, 24);
+  const daytime = upcoming.filter((h) => {
+    const hour = Number(hourLabel(h.time).slice(0, 2));
+    return hour >= 6 && hour <= 21;
+  });
+  const pool = daytime.length >= 3 ? daytime : upcoming;
+
+  let best = null;
+
+  for (let i = 0; i + 2 < pool.length; i += 1) {
+    const slice = pool.slice(i, i + 3);
+
+    // Only consecutive hours form a window.
+    const span = new Date(slice[2].time) - new Date(slice[0].time);
+    if (span !== 2 * 3600 * 1000) continue;
+
+    const mean = slice.reduce((sum, h) => sum + h.aqi, 0) / 3;
+
+    if (!best || mean < best.mean) best = { start: slice[0].time, end: slice[2].time, mean };
+  }
+
+  return best;
+}
+
+function HourlyOutlook({ city }) {
+  const [state, setState] = useState({ city: null, hours: [], error: "" });
+
+  useEffect(() => {
+    if (!city) return undefined;
+
+    let cancelled = false;
+
+    fetch(`${API}/hourly/${encodeURIComponent(city)}`)
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || `HTTP ${response.status}`);
+        return payload;
+      })
+      .then((payload) => {
+        if (!cancelled) setState({ city, hours: payload.hours ?? [], error: "" });
+      })
+      .catch((error) => {
+        if (!cancelled) setState({ city, hours: [], error: error.message });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [city]);
+
+  const loading = state.city !== city;
+  const hours = loading ? [] : state.hours;
+  const upcoming = hours.filter((h) => h.is_forecast).slice(0, 24);
+  const peak = upcoming.reduce((max, h) => (!max || h.aqi > max.aqi ? h : max), null);
+  const best = bestWindow(hours);
+  const nowStamp = hours.filter((h) => !h.is_forecast).at(-1)?.time;
+
+  return (
+    <div className="hourly-outlook">
+      <div className="hourly-outlook-head">
+        <div>
+          <h3>Hourly Outlook</h3>
+          <p>Past 12 hours and next 36 hours · CAMS hourly forecast</p>
+        </div>
+      </div>
+
+      {loading && <p className="hourly-outlook-empty">Loading hourly forecast…</p>}
+
+      {!loading && state.error && (
+        <p className="hourly-outlook-empty">Hourly forecast unavailable: {state.error}</p>
+      )}
+
+      {!loading && !state.error && hours.length > 0 && (
+        <>
+          <div className="hourly-outlook-stats">
+            <div>
+              <span>Best time outside</span>
+              <strong>
+                {best ? `${dayHourLabel(best.start)}–${hourLabel(best.end)}` : "—"}
+              </strong>
+              <small style={{ color: best ? aqiColor(best.mean) : undefined }}>
+                {best ? `≈ ${fmt(best.mean)} AQI · ${aqiStatus(best.mean)}` : ""}
+              </small>
+            </div>
+
+            <div>
+              <span>Peak in next 24 h</span>
+              <strong>{peak ? dayHourLabel(peak.time) : "—"}</strong>
+              <small style={{ color: peak ? aqiColor(peak.aqi) : undefined }}>
+                {peak ? `${fmt(peak.aqi)} AQI · ${aqiStatus(peak.aqi)}` : ""}
+              </small>
+            </div>
+
+            <div>
+              <span>Hours above 150</span>
+              <strong>{upcoming.filter((h) => h.aqi > 150).length} of {upcoming.length}</strong>
+              <small>Unhealthy for everyone</small>
+            </div>
+          </div>
+
+          <div className="hourly-outlook-chart">
+            <ResponsiveContainer width="100%" height={190}>
+              <AreaChart data={hours} margin={{ top: 22, right: 24, bottom: 0, left: -18 }}>
+                <defs>
+                  <linearGradient id="hourlyFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ff9f21" stopOpacity={0.45} />
+                    <stop offset="100%" stopColor="#48e293" stopOpacity={0.04} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <XAxis
+                  dataKey="time"
+                  tickFormatter={hourLabel}
+                  interval={5}
+                  tick={{ fill: "#8da1aa", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: "#8da1aa", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={48}
+                />
+                <Tooltip
+                  contentStyle={{ background: "#081923", border: "1px solid #1d3b49", borderRadius: 10 }}
+                  labelStyle={{ color: "#e6eef1" }}
+                  labelFormatter={(value) => dayHourLabel(value)}
+                  formatter={(value) => [`${fmt(value)} · ${aqiStatus(value)}`, "AQI"]}
+                />
+                {nowStamp && (
+                  <ReferenceLine
+                    x={nowStamp}
+                    stroke="#e6eef1"
+                    strokeDasharray="4 4"
+                    label={{ value: "Now", fill: "#e6eef1", fontSize: 12, position: "top" }}
+                  />
+                )}
+                <Area
+                  type="monotone"
+                  dataKey="aqi"
+                  stroke="#ff9f21"
+                  strokeWidth={2}
+                  fill="url(#hourlyFill)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 /* =========================================================
@@ -1910,7 +2260,7 @@ if (onResult) {
    Scenario Prediction SHAP.
    ========================================================= */
 
-const END_SHAP_FEATURES_PER_PAGE = 12;
+const END_SHAP_FEATURES_PER_PAGE = 8;
 
 function EndModelExplainability({ selectedData }) {
   const [shapPage, setShapPage] = useState(1);
@@ -1946,9 +2296,12 @@ function EndModelExplainability({ selectedData }) {
     )
   );
 
+  // Back to page 1 only when the city changes, not on every 60 s refresh.
+  const shapCity = selectedData?.city_name;
+
   useEffect(() => {
     setShapPage(1);
-  }, [selectedData]);
+  }, [shapCity]);
 
   useEffect(() => {
     if (shapPage > totalPages) {
@@ -2308,6 +2661,102 @@ function EndModelExplainability({ selectedData }) {
   );
 }
 
+const LIVE_SOURCE_LABELS = {
+  station: "Ground station",
+  model_hourly: "CAMS · hourly",
+  model_daily: "Daily average",
+};
+
+function AboutModal({ open, onClose, model, live }) {
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const onKey = (event) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="about-overlay" onClick={onClose}>
+      <div
+        className="about-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="about-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="about-head">
+          <h2 id="about-title">How PEARLSAQI works</h2>
+          <button type="button" className="about-close" onClick={onClose} aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+
+        <section>
+          <h3>What the numbers mean</h3>
+          <p>
+            The big number on the gauge is the <b>current hour's</b> US AQI.
+            The 3-day forecast shows each day's <b>average</b> AQI, predicted
+            by an XGBoost model from the last 30+ days of pollution and weather.
+            Day 2 and Day 3 are predicted recursively from the previous day.
+          </p>
+        </section>
+
+        <section>
+          <h3>Why it can differ from Google or Punjab EPD</h3>
+          <ul>
+            <li>
+              <b>Source.</b> By default PEARLSAQI uses the CAMS atmospheric model
+              (via Open-Meteo), which estimates air quality on a ~40 km grid.
+              Punjab EPD and most apps use ground monitoring stations, which pick
+              up local smog the model smooths out, so they often read higher in
+              winter.
+            </li>
+            <li>
+              <b>Averaging.</b> A current-hour reading and a 24-hour average of
+              the same air can differ by 50+ points.
+            </li>
+            <li>
+              <b>Index.</b> Google shows its own Universal AQI in some regions;
+              PEARLSAQI always uses the US EPA scale (0–500).
+            </li>
+          </ul>
+          <p className="about-note">
+            {live?.station_data_enabled
+              ? "Ground-station readings are enabled: the gauge shows the nearest station when one is within 40 km."
+              : "To show ground-station readings, add a free AQICN_TOKEN (aqicn.org/data-platform/token) to the project's .env file and restart the backend."}
+          </p>
+        </section>
+
+        <section>
+          <h3>Model accuracy (held-out test data)</h3>
+          <div className="about-metrics">
+            <div><span>RMSE</span><strong>{fmt(model?.test_rmse, 1)}</strong></div>
+            <div><span>MAE</span><strong>{fmt(model?.test_mae, 1)}</strong></div>
+            <div><span>R²</span><strong>{fmt(model?.test_r2, 2)}</strong></div>
+          </div>
+          <p>
+            On average the next-day forecast is off by about {fmt(model?.test_mae, 0)} AQI
+            points. Errors grow for Day 2 and Day 3.
+          </p>
+        </section>
+
+        <section>
+          <h3>Data pipeline</h3>
+          <p>
+            A GitHub Actions job collects hourly air quality and weather for all
+            12 cities and stores daily averages in DuckDB. The API rebuilds
+            the model's features whenever that database changes.
+          </p>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function BrainIconFallback() {
   return <Activity size={22} />;
 }
@@ -2438,6 +2887,8 @@ const [loading, setLoading] =
   const [refreshing, setRefreshing] =
     useState(false);
 
+  const [aboutOpen, setAboutOpen] = useState(false);
+
   const [apiError, setApiError] =
     useState("");
 
@@ -2473,6 +2924,59 @@ const [loading, setLoading] =
     setCompareModalOpen(false);
   };
 
+  useEffect(() => {
+    let frame = 0;
+
+    const update = (event) => {
+      cancelAnimationFrame(frame);
+
+      frame = requestAnimationFrame(() => {
+        const entries = Object.entries(SECTION_TARGETS)
+          .map(([name, id]) => [name, document.getElementById(id)])
+          .filter(([, el]) => el);
+
+        if (!entries.length) return;
+
+        // At the very bottom the last short section can never reach the
+        // reading line, so select it explicitly.
+        const scroller =
+          event?.target instanceof Element
+            ? event.target
+            : document.scrollingElement;
+
+        if (
+          scroller &&
+          scroller.contains(entries.at(-1)[1]) &&
+          scroller.scrollTop > 0 &&
+          scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4
+        ) {
+          setSection(entries.at(-1)[0]);
+          return;
+        }
+
+        // Otherwise: the last section whose top has passed 35% of the viewport.
+        const line = window.innerHeight * 0.35;
+        let current = entries[0][0];
+
+        for (const [name, el] of entries) {
+          if (el.getBoundingClientRect().top <= line) current = name;
+        }
+
+        setSection(current);
+      });
+    };
+
+    // Capture so scrolling inside the main content pane is seen too.
+    document.addEventListener("scroll", update, { capture: true, passive: true });
+    window.addEventListener("resize", update);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("scroll", update, { capture: true });
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
   const [pakistanGeoJSON, setPakistanGeoJSON] = useState(null);
   const [trendData, setTrendData] = useState([]);
 
@@ -2501,6 +3005,7 @@ useEffect(() => {
     return;
   }
 
+
   let cancelled = false;
 
   async function loadTrendData() {
@@ -2508,7 +3013,7 @@ useEffect(() => {
 
   try {
     const response = await fetch(
-      `http://127.0.0.1:5000/api/trends/${encodeURIComponent(selected)}`
+      `${API}/trends/${encodeURIComponent(selected)}`
     );
 
     if (!response.ok) {
@@ -2519,12 +3024,15 @@ useEffect(() => {
 
     const data = await response.json();
 
+    if (cancelled) return;
+
     setTrendData(
       Array.isArray(data?.trends)
         ? data.trends
         : []
     );
   } catch (err) {
+    if (cancelled) return;
     console.error("Trend data failed:", err);
     setTrendData([]);
   }
@@ -2539,148 +3047,6 @@ useEffect(() => {
   };
 }, [selected]);
 
-
-  // =========================================================
-  // CUSTOM SCENARIO SIMULATOR
-  // =========================================================
-
-  async function runScenarioPrediction() {
-    if (!selected) return;
-
-    try {
-      setScenarioLoading(true);
-      setScenarioError("");
-      setScenarioResult(null);
-
-      const response = await fetch(
-  "http://127.0.0.1:5000/api/scenario-predict",
-  {
-        
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            city: selected,
-            scenario: scenarioValues,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-          `Scenario API failed: ${response.status}`
-        );
-      }
-
-      setScenarioResult(data);
-    } catch (err) {
-      console.error(
-        "Scenario prediction failed:",
-        err
-      );
-
-      setScenarioError(
-        err?.message ||
-        "Unable to run scenario prediction."
-      );
-    } finally {
-      setScenarioLoading(false);
-    }
-  }
-  // =========================================================
-  // CUSTOM SCENARIO SIMULATOR
-  // =========================================================
-
-  const applyScenarioPreset = (preset) => {
-    setScenarioPreset(preset);
-
-    const current = selectedData || {};
-
-    const base = {
-      pm25: Number(current.pm25 ?? 0),
-      pm10: Number(current.pm10 ?? 0),
-      no2: Number(current.no2 ?? 0),
-      so2: Number(current.so2 ?? 0),
-      o3: Number(current.o3 ?? 0),
-      co: Number(current.co ?? 0),
-      temperature: Number(current.temperature ?? 0),
-      humidity: Number(current.humidity ?? 0),
-      wind_speed: Number(current.wind_speed ?? 0),
-    };
-
-    if (preset === "Custom") {
-      setScenarioValues(base);
-      return;
-    }
-
-    if (preset === "Heavy Smog") {
-      setScenarioValues({
-        ...base,
-        pm25: base.pm25 * 1.8,
-        pm10: base.pm10 * 1.5,
-        no2: base.no2 * 1.4,
-        wind_speed: Math.max(0, base.wind_speed * 0.5),
-      });
-      return;
-    }
-
-    if (preset === "Traffic Rush") {
-      setScenarioValues({
-        ...base,
-        no2: base.no2 * 1.7,
-        co: base.co * 1.5,
-        pm25: base.pm25 * 1.25,
-      });
-      return;
-    }
-
-    if (preset === "After Rain") {
-      setScenarioValues({
-        ...base,
-        pm25: base.pm25 * 0.55,
-        pm10: base.pm10 * 0.6,
-        humidity: Math.min(100, base.humidity + 10),
-        wind_speed: base.wind_speed * 1.25,
-      });
-      return;
-    }
-
-    if (preset === "Hot Afternoon") {
-      setScenarioValues({
-        ...base,
-        temperature: base.temperature + 5,
-        humidity: Math.max(0, base.humidity - 15),
-      });
-    }
-  };
-
-
-  /* =========================================================
-     FETCH SINGLE CITY
-     ========================================================= */
-
-  async function fetchCity(city) {
-
-  const response = await fetch(
-  `${API}/scenario-predict`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      city: selected,
-      scenario: scenarioValues,
-    }),
-  }
-);
-
-  return response;
-}
 
   /* =========================================================
      LOAD DASHBOARD
@@ -2800,6 +3166,10 @@ useEffect(() => {
                     : [],
 
                 as_of: data.as_of,
+
+                live: data.live || {},
+
+                model_inputs: data.model_inputs || null,
 
                 model:
                   data.model || {},
@@ -3138,55 +3508,24 @@ const forecastChart = useMemo(() => {
 
   const selectedHorizon = horizonMap[tab];
 
-  const totalHours = selectedHorizon * 24;
+  // Only real values: the current reading, then each predicted daily
+  // average up to the chosen horizon (no invented in-between points).
+  const days = selectedForecasts
+    .filter((item) => Number(item.horizon) <= selectedHorizon)
+    .sort((a, b) => Number(a.horizon) - Number(b.horizon))
+    .map((item) => ({
+      label: item.forecast_date
+        ? new Date(item.forecast_date).toLocaleDateString("en-GB", {
+            weekday: "short",
+            day: "2-digit",
+          })
+        : `Day ${item.horizon}`,
+      aqi: Number(
+        num(item.predicted_aqi ?? item.prediction, current).toFixed(1)
+      ),
+    }));
 
-  // Create useful time labels for the X-axis.
-  const interval = totalHours / 4;
-
-  const labels = [
-    0,
-    interval,
-    interval * 2,
-    interval * 3,
-    totalHours,
-  ];
-
-  const forecastItem = selectedForecasts.find(
-    (item) =>
-      Number(item.horizon) === selectedHorizon
-  );
-
-  const predicted = forecastItem
-    ? num(
-        forecastItem.predicted_aqi ??
-          forecastItem.prediction,
-        current
-      )
-    : current;
-
-  // Keep the forecast visually continuous between
-  // current AQI and the selected forecast.
-  return labels.map((hours, index) => {
-
-    const progress =
-      totalHours === 0
-        ? 0
-        : hours / totalHours;
-
-    const aqi =
-      current +
-      (predicted - current) * progress;
-
-    return {
-      label:
-        index === 0
-          ? "Now"
-          : `${Math.round(hours)}h`,
-
-      aqi: Number(aqi.toFixed(1)),
-    };
-
-  });
+  return [{ label: "Now", aqi: Number(num(current).toFixed(1)) }, ...days];
 
 }, [
   selectedAQI,
@@ -3252,41 +3591,51 @@ const forecastChart = useMemo(() => {
      POLLUTANTS
      ========================================================= */
 
+  // Last 14 days of the selected city's real daily values, for the
+  // pollutant sparklines.
+  const recentTrend = trendData.slice(-14);
+
   const pollutants = [
     [
       "PM2.5",
       selectedData?.pm25,
       "µg/m³",
+      "pm25",
     ],
 
     [
       "PM10",
       selectedData?.pm10,
       "µg/m³",
+      "pm10",
     ],
 
     [
       "NO₂",
       selectedData?.no2,
       "µg/m³",
+      "no2",
     ],
 
     [
       "SO₂",
       selectedData?.so2,
       "µg/m³",
+      "so2",
     ],
 
     [
       "CO",
       selectedData?.co,
       "µg/m³",
+      "co",
     ],
 
     [
       "O₃",
       selectedData?.o3,
       "µg/m³",
+      "o3",
     ],
   ];
 
@@ -3294,6 +3643,17 @@ const forecastChart = useMemo(() => {
   /* =========================================================
      NAVIGATION
      ========================================================= */
+
+  // Select a city from a list further down the page and bring its
+  // overview into view, so the change is visible.
+  function focusCity(name) {
+    setSelected(name);
+
+    document.getElementById("overview")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
 
   function navigate(name) {
   setSection(name);
@@ -3304,17 +3664,7 @@ const forecastChart = useMemo(() => {
     return;
   }
 
-  const targets = {
-  Overview: "overview",
-  Cities: "cities",
-  "Scenario Lab": "scenario-lab",
-  "Pakistan AQI": "pakistan-aqi",
-  "AQI Forecast": "aqi-forecast",
-  "Air Quality Insights": "air-quality-insights",
-  "Model Explainability": "model-explainability",
-};
-
-  const targetId = targets[name];
+  const targetId = SECTION_TARGETS[name];
 
   if (targetId) {
     const target = document.getElementById(targetId);
@@ -3430,8 +3780,8 @@ const forecastChart = useMemo(() => {
               DATA STATUS
             </strong>
 
-            <span>
-              <i /> Live
+            <span className={apiError ? "status-offline" : ""}>
+              <i /> {apiError ? "Offline" : "Live"}
             </span>
 
           </div>
@@ -3443,7 +3793,7 @@ const forecastChart = useMemo(() => {
             <span>
               AQI Data
               <small>
-                Live from V4 API
+                {LIVE_SOURCE_LABELS[selectedData?.live?.source] ?? "Loading…"}
               </small>
             </span>
           </div>
@@ -3455,7 +3805,7 @@ const forecastChart = useMemo(() => {
             <span>
               Weather
               <small>
-                Current conditions
+                Open-Meteo · hourly
               </small>
             </span>
           </div>
@@ -3467,7 +3817,7 @@ const forecastChart = useMemo(() => {
             <span>
               Forecast
               <small>
-                V4 model prediction
+                XGBoost V4 · 3 days
               </small>
             </span>
           </div>
@@ -3475,7 +3825,69 @@ const forecastChart = useMemo(() => {
         </div>
 
 
-        
+        {/* PAKISTAN RIGHT NOW — fills the sidebar with live highlights */}
+        {liveRanking.length > 0 && (
+          <div className="pk-now">
+
+            <strong className="pk-now-title">
+              PAKISTAN RIGHT NOW
+            </strong>
+
+            <button
+              type="button"
+              className="pk-now-row"
+              onClick={() => focusCity(liveRanking[0].city_name)}
+            >
+              <span>
+                Most polluted
+                <small>{liveRanking[0].city_name}</small>
+              </span>
+              <b style={{ color: aqiColor(liveRanking[0].aqi) }}>
+                {fmt(liveRanking[0].aqi)}
+              </b>
+            </button>
+
+            <button
+              type="button"
+              className="pk-now-row"
+              onClick={() => focusCity(liveRanking.at(-1).city_name)}
+            >
+              <span>
+                Cleanest
+                <small>{liveRanking.at(-1).city_name}</small>
+              </span>
+              <b style={{ color: aqiColor(liveRanking.at(-1).aqi) }}>
+                {fmt(liveRanking.at(-1).aqi)}
+              </b>
+            </button>
+
+            <div className="pk-now-row">
+              <span>
+                National average
+                <small>{aqiStatus(averageAQI).replace("Unhealthy for Sensitive Groups", "Unhealthy (sensitive)")}</small>
+              </span>
+              <b style={{ color: aqiColor(averageAQI) }}>
+                {fmt(averageAQI)}
+              </b>
+            </div>
+
+            <div className="pk-now-bar" aria-hidden="true">
+              {liveRanking.map((city) => (
+                <i
+                  key={city.city_name}
+                  title={`${city.city_name}: ${fmt(city.aqi)}`}
+                  style={{ background: aqiColor(city.aqi) }}
+                />
+              ))}
+            </div>
+
+            <small className="pk-now-foot">
+              {liveRanking.filter((city) => city.aqi > 150).length} of {liveRanking.length} cities are Unhealthy
+            </small>
+
+          </div>
+        )}
+
       </aside>
 
 
@@ -3676,7 +4088,15 @@ const forecastChart = useMemo(() => {
 
             <ShieldCheck size={18} />
 
-            {apiError}
+            <span>{apiError}</span>
+
+            <button
+              type="button"
+              className="api-warning-retry"
+              onClick={() => loadDashboard(true)}
+            >
+              Retry
+            </button>
 
           </div>
 
@@ -3796,6 +4216,7 @@ const forecastChart = useMemo(() => {
 
             <Gauge
               value={selectedAQI}
+              live={selectedData?.live}
             />
 
 
@@ -3836,6 +4257,7 @@ const forecastChart = useMemo(() => {
                     label,
                     value,
                     unit,
+                    key,
                   ],
                   index
                 ) => (
@@ -3844,6 +4266,9 @@ const forecastChart = useMemo(() => {
                     key={label}
                     index={index}
                     label={label}
+                    unitLabel={unit}
+                    series={recentTrend.map((day) => day?.[key])}
+                    dates={recentTrend.map((day) => day?.date)}
                     value={
                       value == null
                         ? "—"
@@ -4132,15 +4557,10 @@ scrollWheelZoom={false}                className="leaflet-map"
                             selected ===
                             city
                               ? "#ffffff"
-                              : "#39e68a",
+                              : "rgba(8, 20, 26, 0.85)",
 
                           fillColor:
-                            statusClass(
-                              aqi
-                            ) ===
-                            "unhealthy"
-                              ? "#ff6535"
-                              : "#49d98d",
+                            aqiColor(aqi),
 
                           fillOpacity:
                             0.88,
@@ -4154,6 +4574,15 @@ scrollWheelZoom={false}                className="leaflet-map"
                             ),
                         }}
                       >
+
+                        <MapTooltip
+                          permanent
+                          direction="top"
+                          offset={[0, -8]}
+                          className="map-aqi-label"
+                        >
+                          {fmt(aqi)}
+                        </MapTooltip>
 
                         <Popup>
 
@@ -4267,7 +4696,7 @@ scrollWheelZoom={false}                className="leaflet-map"
           >
 
             <div
-              id="forecast"
+
               className="forecast-tabs"
             >
 
@@ -4352,14 +4781,14 @@ scrollWheelZoom={false}                className="leaflet-map"
   axisLine={false}
   tickLine={false}
   stroke="#8b9aa3"
-  tick={{ fontSize: 10 }}
+  tick={{ fontSize: 12 }}
 />
 
 <YAxis
   axisLine={false}
   tickLine={false}
   stroke="#8b9aa3"
-  tick={{ fontSize: 10 }}
+  tick={{ fontSize: 12 }}
   width={32}
 />
 
@@ -4666,6 +5095,25 @@ scrollWheelZoom={false}                className="leaflet-map"
 
 </div>
 
+            {(() => {
+              const concern = mainConcern(selectedData);
+              if (!concern) return null;
+
+              const over = concern.ratio > 1;
+
+              return (
+                <div className={`breakdown-concern ${over ? "over" : "ok"}`}>
+                  <span>Main concern</span>
+                  <strong>
+                    {over
+                      ? `${concern.label} is ${concern.ratio.toFixed(1)}× the WHO limit`
+                      : "All pollutants within WHO limits"}
+                  </strong>
+                  <small>Compared with WHO daily guidelines · µg/m³</small>
+                </div>
+              );
+            })()}
+
           </Panel>
 
 
@@ -4761,6 +5209,30 @@ scrollWheelZoom={false}                className="leaflet-map"
 
 </div>
 
+            {(() => {
+              const advice = protectionAdvice(selectedAQI);
+
+              return (
+                <div className="health-protection">
+                  <div>
+                    <Activity size={16} />
+                    <span>Outdoor exercise</span>
+                    <strong>{advice.exercise}</strong>
+                  </div>
+                  <div>
+                    <ShieldCheck size={16} />
+                    <span>Mask</span>
+                    <strong>{advice.mask}</strong>
+                  </div>
+                  <div>
+                    <Wind size={16} />
+                    <span>Windows</span>
+                    <strong>{advice.windows}</strong>
+                  </div>
+                </div>
+              );
+            })()}
+
           </Panel>
 
           {/* =================================================
@@ -4802,18 +5274,9 @@ scrollWheelZoom={false}                className="leaflet-map"
     </div>
 
     <div className="comparison-controls">
-      <div className="comparison-city-chips">
-        {comparisonCities.map((city) => (
-          <button
-            type="button"
-            className="city-chip"
-            key={city}
-            onClick={() => setSelected(city)}
-          >
-            {city} · {fmt(getAQI(cityData?.[city]))}
-          </button>
-        ))}
-      </div>
+      <span className="comparison-hint">
+        Click a city to open it, or choose cities to compare
+      </span>
 
       <button
         type="button"
@@ -4844,6 +5307,10 @@ scrollWheelZoom={false}                className="leaflet-map"
             className={`comparison-card ${statusClass(
               cityAQI
             )}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelected(city)}
+            onKeyDown={(event) => event.key === "Enter" && setSelected(city)}
           >
 
             <div className="comparison-card-top">
@@ -4890,35 +5357,24 @@ scrollWheelZoom={false}                className="leaflet-map"
 
     </div>
 
-    <div className="comparison-summary">
+    {(() => {
+      const ranked = comparisonCities
+        .map((city) => ({ city, aqi: getAQI(cityData?.[city]) }))
+        .filter((item) => item.aqi > 0)
+        .sort((a, b) => b.aqi - a.aqi);
 
-      <div className="summary-icon">
-        ↗
-      </div>
+      if (ranked.length < 2) return null;
 
-      <p>
-        Air quality varies across selected cities.
-        <br />
+      const worst = ranked[0];
+      const best = ranked.at(-1);
 
-        <strong>
-          {comparisonCities.reduce((best, city) =>
-            getAQI(cityData?.[city]) < getAQI(cityData?.[best])
-              ? city
-              : best
-          , comparisonCities[0])}
-        </strong>{" "}
-        currently has the lowest AQI, while{" "}
-        <strong>
-          {comparisonCities.reduce((best, city) =>
-            getAQI(cityData?.[city]) > getAQI(cityData?.[best])
-              ? city
-              : best
-          , comparisonCities[0])}
-        </strong>{" "}
-        has the highest.
-      </p>
-
-    </div>
+      return (
+        <p className="comparison-summary">
+          <b>{worst.city}</b> is {(worst.aqi / best.aqi).toFixed(1)}× more polluted
+          than <b>{best.city}</b> right now ({fmt(worst.aqi)} vs {fmt(best.aqi)} AQI).
+        </p>
+      );
+    })()}
 
   </div>
 
@@ -5094,7 +5550,7 @@ scrollWheelZoom={false}                className="leaflet-map"
                     key={row.city_name}
                     className="directory-row"
                     onClick={() =>
-                      setSelected(
+                      focusCity(
                         row.city_name
                       )
                     }
@@ -5159,7 +5615,7 @@ scrollWheelZoom={false}                className="leaflet-map"
                 <button
                   key={city.city_name}
                   className="city-ranking-item"
-                  onClick={() => setSelected(city.city_name)}
+                  onClick={() => focusCity(city.city_name)}
                 >
                   <span className="ranking-number">
                     {index + 1}
@@ -5219,6 +5675,13 @@ scrollWheelZoom={false}                className="leaflet-map"
         {/* =====================================================
             PEARLSAQI FOOTER
             ===================================================== */}
+        <AboutModal
+          open={aboutOpen}
+          onClose={() => setAboutOpen(false)}
+          model={selectedData?.model}
+          live={selectedData?.live}
+        />
+
         <footer className="pearlsaqi-footer">
           <div className="pearlsaqi-footer-grid">
 
@@ -5235,15 +5698,15 @@ scrollWheelZoom={false}                className="leaflet-map"
               </div>
               <div className="pearlsaqi-footer-detail">
                 <span>Model Version</span>
-                <strong>V4.0.0</strong>
+                <strong>{selectedData?.model?.version ?? "v4_final_108"}</strong>
               </div>
               <div className="pearlsaqi-footer-detail">
                 <span>Total Features</span>
-                <strong>108</strong>
+                <strong>{selectedData?.model?.feature_count ?? 108}</strong>
               </div>
               <div className="pearlsaqi-footer-detail">
                 <span>Model Type</span>
-                <strong>Regression</strong>
+                <strong>Gradient-boosted trees</strong>
               </div>
             </div>
 
@@ -5256,11 +5719,17 @@ scrollWheelZoom={false}                className="leaflet-map"
               </div>
               <div className="pearlsaqi-footer-row">
                 <span>Data Source</span>
-                <strong>Live from V4 API</strong>
+                <strong>
+                  {selectedData?.live?.source === "station"
+                    ? "Ground stations (WAQI)"
+                    : "Open-Meteo (CAMS)"}
+                </strong>
               </div>
               <div className="pearlsaqi-footer-row">
                 <span>Data Status</span>
-                <strong className="status-live">● Live</strong>
+                <strong className={apiError ? "status-offline" : "status-live"}>
+                  ● {apiError ? "Offline" : "Live"}
+                </strong>
               </div>
               <div className="pearlsaqi-footer-row">
                 <span>Last Updated</span>
@@ -5278,8 +5747,8 @@ scrollWheelZoom={false}                className="leaflet-map"
                 </strong>
               </div>
               <div className="pearlsaqi-footer-row">
-                <span>System Status</span>
-                <strong className="status-live">● Operational</strong>
+                <span>Model Data As Of</span>
+                <strong>{selectedData?.as_of ? String(selectedData.as_of).slice(0, 10) : "—"}</strong>
               </div>
             </div>
 
@@ -5291,20 +5760,22 @@ scrollWheelZoom={false}                className="leaflet-map"
                 <h3>ACCURACY &amp; PERFORMANCE</h3>
               </div>
               <div className="pearlsaqi-footer-detail">
+                <span>Test RMSE / MAE</span>
+                <strong>
+                  {fmt(selectedData?.model?.test_rmse, 1)} / {fmt(selectedData?.model?.test_mae, 1)} AQI
+                </strong>
+              </div>
+              <div className="pearlsaqi-footer-detail">
+                <span>Test R²</span>
+                <strong>{fmt(selectedData?.model?.test_r2, 2)}</strong>
+              </div>
+              <div className="pearlsaqi-footer-detail">
                 <span>Forecast Horizon</span>
                 <strong>24 / 48 / 72 Hours</strong>
               </div>
               <div className="pearlsaqi-footer-detail">
-                <span>Explainability</span>
-                <strong>108 SHAP Features</strong>
-              </div>
-              <div className="pearlsaqi-footer-detail">
-                <span>Monitored Coverage</span>
-                <strong>12 Pakistani Cities</strong>
-              </div>
-              <div className="pearlsaqi-footer-detail">
                 <span>Data Pipeline</span>
-                <strong>Real-time API</strong>
+                <strong>Hourly (GitHub Actions)</strong>
               </div>
             </div>
 
@@ -5323,15 +5794,7 @@ scrollWheelZoom={false}                className="leaflet-map"
               <button
                 type="button"
                 className="pearlsaqi-learn-more"
-                onClick={() => {
-                  const overview = document.getElementById("overview");
-                  if (overview) {
-                    overview.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                  }
-                }}
+                onClick={() => setAboutOpen(true)}
               >
                 Learn More
                 <ChevronRight size={17} />
@@ -5344,15 +5807,15 @@ scrollWheelZoom={false}                className="leaflet-map"
             <div className="pearlsaqi-footer-badge">
               <ShieldCheck size={22} />
               <div>
-                <strong>Trusted Data</strong>
-                <span>Validated &amp; Verified</span>
+                <strong>Open Data</strong>
+                <span>Open-Meteo · CAMS</span>
               </div>
             </div>
             <div className="pearlsaqi-footer-badge">
               <RefreshCw size={22} />
               <div>
-                <strong>Real-time Updates</strong>
-                <span>Live V4 API</span>
+                <strong>Hourly Updates</strong>
+                <span>Automated pipeline</span>
               </div>
             </div>
             <div className="pearlsaqi-footer-badge">
@@ -5365,8 +5828,8 @@ scrollWheelZoom={false}                className="leaflet-map"
             <div className="pearlsaqi-footer-badge">
               <BarChart3 size={22} />
               <div>
-                <strong>Advanced Analytics</strong>
-                <span>AI-powered insights</span>
+                <strong>Machine Learning</strong>
+                <span>XGBoost · 108 features</span>
               </div>
             </div>
             <div className="pearlsaqi-footer-badge">

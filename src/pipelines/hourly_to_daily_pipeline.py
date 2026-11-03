@@ -1,4 +1,5 @@
-﻿from pathlib import Path
+﻿import sys
+from pathlib import Path
 import duckdb
 
 
@@ -7,6 +8,9 @@ DB_PATH = BASE_DIR / "database" / "aqi.duckdb"
 
 
 def main():
+
+    # The log uses non-ASCII arrows; Windows consoles default to cp1252.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     print("=" * 70)
     print("PEARLSAQI HOURLY → DAILY SYNCHRONIZATION")

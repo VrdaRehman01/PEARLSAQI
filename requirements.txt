@@ -1,5 +1,6 @@
-numpy==1.26.4
-pandas==2.2.3
+numpy>=2.0  # pyarrow and the saved models need NumPy 2
+pandas>=2.2.3
+pyarrow
 requests
 python-dotenv
 scikit-learn
@@ -11,6 +12,7 @@ huggingface_hub
 # Web dashboard (Phase 5)
 streamlit
 flask
+flask-cors
 
 # Advanced analytics (Phase 6)
 matplotlib

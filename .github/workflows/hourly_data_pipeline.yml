@@ -2,12 +2,21 @@ name: Hourly AQI Data Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      past_days:
+        description: "Hours of history to re-download, in days (2 = normal run, up to 92 to repair older data)"
+        required: false
+        default: "2"
 
   schedule:
     - cron: "17 * * * *"
 
 permissions:
   contents: write
+
+env:
+  # Scheduled runs have no inputs, so they fall back to 2 days.
+  HOURLY_PAST_DAYS: ${{ github.event.inputs.past_days || '2' }}
 
 # IMPORTANT:
 # Only one workflow is allowed to modify the database at a time.
@@ -32,7 +41,7 @@ jobs:
       # ============================================================
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -41,7 +50,7 @@ jobs:
       # ============================================================
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
