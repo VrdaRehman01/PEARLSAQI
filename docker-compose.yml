@@ -1,32 +1,13 @@
-﻿services:
+services:
 
-  pearlsaqi:
-    build:
-      context: .
-      dockerfile: Dockerfile
-
-    container_name: pearlsaqi
-
-    restart: "no"
-
-    volumes:
-      - ./data:/app/data
-      - ./models:/app/models
-      - ./logs:/app/logs
-
-    environment:
-      PYTHONUNBUFFERED: "1"
-
+  api:
+    build: .
+    container_name: pearlsaqi-api
     ports:
-      - "8000:8000"
-
-    networks:
-      - pearlsaqi_network
-
-
-      
-
-
-networks:
-  pearlsaqi_network:
-    driver: bridge
+      - "5000:5000"
+    environment:
+      # Keep the database current from GitHub (same as Render).
+      REMOTE_DATABASE_URL: https://raw.githubusercontent.com/VrdaRehman01/PEARLSAQI/main/database/aqi.duckdb
+      # Optional ground-station readings; set it in .env.
+      AQICN_TOKEN: ${AQICN_TOKEN:-}
+    restart: unless-stopped

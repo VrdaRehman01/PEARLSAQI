@@ -15,6 +15,10 @@
 </p>
 
 <p align="center">
+  <strong>🌐 Live dashboard: <a href="https://pearlsaqi.vercel.app">pearlsaqi.vercel.app</a></strong>
+</p>
+
+<p align="center">
   <img src="screenshots/dashboard.png" alt="PEARLSAQI dashboard showing Lahore's live AQI gauge, pollutant cards and city overview" width="100%">
 </p>
 
@@ -80,7 +84,7 @@ Each city marker is coloured by its US EPA category and labelled with its AQI, s
 
 ### AQI Forecast & Hourly Outlook
 
-The model's predicted daily average AQI for the next three days, followed by an hourly chart covering the last 12 and next 36 hours. The hourly outlook highlights the cleanest 3-hour daytime window, the worst upcoming hour, and how many hours exceed 150.
+The model's predicted daily average AQI for the next three days, followed by an hourly chart covering the last 12 and next 36 hours of CAMS data. The hourly outlook highlights the cleanest 3-hour daytime window, the worst upcoming hour, and how many hours exceed 150.
 
 <p align="center">
   <img src="screenshots/forecast.png" alt="Three forecast cards and an hourly AQI outlook chart with best time outside" width="100%">
@@ -136,6 +140,7 @@ SHAP contributions for each of the three forecast days, paged through all 108 fe
 flowchart TD
     A[Open-Meteo<br/>air quality + weather APIs] -->|hourly| B[Hourly ingestion pipeline]
     B --> C[(DuckDB<br/>aqi_hourly / weather_hourly)]
+    B --> C2[(DuckDB<br/>aqi_hourly_forecast)]
     C -->|hourly| D[Hourly-to-daily pipeline]
     D --> E[(DuckDB<br/>aqi / weather daily tables)]
 
@@ -145,12 +150,15 @@ flowchart TD
     H --> I[V9 recursive forecast<br/>+ evaluation]
 
     E --> J[Flask API]
-    A -->|current hour| J
+    C2 --> J
+    A -.->|current hour, when reachable| J
     K[Optional: WAQI ground stations] -.-> J
     J --> L[React + Vite dashboard]
 ```
 
 The Flask API builds its model features directly from the daily tables in `database/aqi.duckdb`, using the same feature code as training, and rebuilds them whenever the database file changes. The dashboard is therefore always as fresh as the database the hourly pipeline maintains.
+
+For the current hour and the hourly outlook, the API asks Open-Meteo first. If Open-Meteo can't be reached (it rate-limits shared cloud hosts such as Render's free plan), it uses the latest stored hour and the forecast the hourly pipeline saved in `aqi_hourly_forecast`. Every outside call has a 20-second limit, so a slow service never blocks the dashboard.
 
 ---
 
@@ -226,9 +234,9 @@ The Flask backend (`app.py`) runs on `http://localhost:5000`.
 
 | Method | Endpoint | Returns |
 |---|---|---|
-| GET | `/health` | Model and data status |
+| GET | `/health` | Model and data status, including where live data came from and the last live-data error |
 | GET | `/api/predict/<city>` | Current conditions and their source, pollutants, 3-day forecast with SHAP per day, model metrics, and the exact model inputs |
-| GET | `/api/hourly/<city>` | Hourly US AQI and PM2.5, past 12 h and next 36 h |
+| GET | `/api/hourly/<city>` | Hourly US AQI and PM2.5, past 12 h and next 36 h, with its `source` |
 | GET | `/api/trends/<city>` | Full daily AQI and pollutant history |
 | POST | `/api/scenario-predict` | What-if prediction. Body: `{"city": "Lahore", "scenario": {"pm25": 200, "wind_speed": 3}}` |
 | GET | `/api/model-stats` | All models in the local model registry |
@@ -247,8 +255,12 @@ Two GitHub Actions workflows keep the data current. Both commit the updated `dat
 
 | Workflow | Schedule | Does |
 |---|---|---|
-| **Hourly AQI Data Pipeline** | every hour at :17 | Downloads the latest hourly US AQI and weather for all 12 cities, rebuilds the daily tables, validates coverage |
+| **Hourly AQI Data Pipeline** | every hour at :17 | Downloads the latest hourly US AQI and weather for all 12 cities, saves the next ~70 forecast hours to `aqi_hourly_forecast`, rebuilds the daily tables, validates coverage |
 | **Daily AQI Production Pipeline** | 02:30 UTC | AQI and weather catch-up, future weather forecast, V4 feature engineering, dataset split, auto-retrain check (the production model is replaced only if a candidate is better), V9 forecast, forecast evaluation |
+
+GitHub runs scheduled workflows on a best-effort basis and often delays them on free repositories, so "hourly" runs can be a few hours apart. The dashboard labels the hour its reading comes from.
+
+Downloads are retried up to four times; if a city still fails, the run fails so the workflow's own retry loop runs again.
 
 ### Repairing older hourly data
 
@@ -336,10 +348,20 @@ The API installs only `requirements-api.txt` (no TensorFlow or Jupyter) and peak
 
 ### 2. Dashboard on Vercel
 
-1. In the Vercel project, open **Settings → Build and Deployment** and set **Root Directory** to `frontend`.
-2. Redeploy. `frontend/vercel.json` builds the Vite app and forwards `/api/*` to Render.
+1. In Vercel, choose **Add New → Project** and import this repository.
+2. Set **Root Directory** to `frontend` and keep the **Vite** preset, then **Deploy**. `frontend/vercel.json` builds the app and forwards `/api/*` to Render.
 
 If Render gives the service a different address than `pearlsaqi-api.onrender.com`, update the `destination` in `frontend/vercel.json`.
+
+### Docker
+
+The `Dockerfile` runs the API the same way Render does (gunicorn, `requirements-api.txt`):
+
+```bash
+docker compose up --build
+```
+
+The API is then available at http://localhost:5000/health. `docker-compose.yml` keeps the database current from GitHub and passes `AQICN_TOKEN` from your `.env`.
 
 ---
 
@@ -362,9 +384,12 @@ Copy `.env.example` to `.env` in the project root:
 ```text
 PEARLSAQI/
 ├── app.py                         # Flask API + serves the built dashboard
+├── train_models.py                # trains the registry's ridge, XGBoost and deep-learning models
 ├── frontend/                      # React + Vite dashboard
 │   ├── src/App.jsx
-│   └── public/landmarks/          # city photos and videos
+│   ├── public/landmarks/          # city photos and videos
+│   ├── public/pakistan.geojson    # map outline
+│   └── vercel.json                # Vercel build + /api forwarding
 ├── src/
 │   ├── pipelines/                 # hourly, hourly→daily and daily production pipelines
 │   ├── ingestion/                 # Open-Meteo downloaders
@@ -380,13 +405,18 @@ PEARLSAQI/
 │   ├── registry/                  # versioned models + registry.json
 │   └── forecast/calibration_v9/   # forecast calibration parameters
 ├── database/aqi.duckdb            # main database, updated by GitHub Actions
-├── scripts/                       # data, evaluation and maintenance utilities
+├── scripts/
+│   ├── data/                      # historical data download
+│   ├── evaluation/                # forecast evaluation, model drift monitor
+│   └── maintenance/               # database table setup and cleanup
 ├── notebooks/eda.ipynb            # exploratory data analysis
 ├── screenshots/                   # README images
 ├── .github/workflows/             # hourly and daily pipelines
 ├── requirements.txt               # full stack: pipelines, training, notebooks
-├── requirements-api.txt           # API only (used by Render)
+├── requirements-api.txt           # API only (Render and Docker)
 ├── render.yaml                    # Render deployment
+├── Dockerfile, docker-compose.yml # API container
+├── PEARLSQAI-REPORT.pdf           # project report
 └── .env.example
 ```
 
@@ -412,6 +442,7 @@ PEARLSAQI/
 - **Model-based data.** Default readings come from the CAMS model, not ground stations, and can underestimate local smog. Station readings are optional and shown only on the live gauge.
 - **Held pollutants.** Recursive forecasts hold pollutants at today's levels. Using CAMS pollutant forecasts as inputs could improve Day 2 and Day 3.
 - **Single model for all horizons.** Dedicated 48 h and 72 h models may reduce long-horizon error.
+- **Free hosting.** Render's free plan sleeps after 15 idle minutes (the first visit then takes about a minute), and Open-Meteo rate-limits it, so the live site shows the latest stored hour rather than the current one.
 - **Coverage.** 12 cities; the pipeline is designed to add more.
 
 ---
