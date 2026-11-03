@@ -20,7 +20,7 @@
 
 ---
 
-## 🌫️ What is PEARLSAQI?
+## What is PEARLSAQI?
 
 PEARLSAQI is an end-to-end air quality platform for Pakistan. It collects hourly air-quality and weather data, stores it in DuckDB, engineers 108 features, and uses an XGBoost model to forecast the next three days of AQI for each city. A Flask API serves the results to a React dashboard that explains every prediction with SHAP.
 
@@ -38,24 +38,24 @@ PEARLSAQI is an end-to-end air quality platform for Pakistan. It collects hourly
 
 ---
 
-## 📚 Table of Contents
+## Table of Contents
 
-- [Dashboard Tour](#-dashboard-tour)
-- [System Architecture](#️-system-architecture)
-- [Data Sources & Accuracy](#-data-sources--accuracy)
-- [Machine Learning](#-machine-learning)
-- [Forecasting](#-forecasting)
-- [API Reference](#-api-reference)
-- [Automation](#️-automation)
-- [Running Locally](#-running-locally)
-- [Configuration](#️-configuration)
-- [Project Structure](#-project-structure)
-- [Technology Stack](#-technology-stack)
-- [Limitations & Future Work](#-limitations--future-work)
+- [Dashboard Tour](#dashboard-tour)
+- [System Architecture](#system-architecture)
+- [Data Sources & Accuracy](#data-sources--accuracy)
+- [Machine Learning](#machine-learning)
+- [Forecasting](#forecasting)
+- [API Reference](#api-reference)
+- [Automation](#automation)
+- [Running Locally](#running-locally)
+- [Configuration](#configuration)
+- [Project Structure](#project-structure)
+- [Technology Stack](#technology-stack)
+- [Limitations & Future Work](#limitations--future-work)
 
 ---
 
-## 🧭 Dashboard Tour
+## Dashboard Tour
 
 ### Overview
 
@@ -129,7 +129,7 @@ SHAP contributions for each of the three forecast days, paged through all 108 fe
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```mermaid
 flowchart TD
@@ -153,7 +153,7 @@ The Flask API builds its model features directly from the daily tables in `datab
 
 ---
 
-## 📡 Data Sources & Accuracy
+## Data Sources & Accuracy
 
 | Source | Used for | Key needed |
 |---|---|---|
@@ -163,7 +163,7 @@ The Flask API builds its model features directly from the daily tables in `datab
 
 ### Why the numbers can differ from Google or Punjab EPD
 
-- **Model vs stations.** CAMS estimates air quality on a ~40 km grid. Ground monitors used by Punjab EPD and most apps pick up local smog that the grid smooths out, so they often read higher in winter. Set `AQICN_TOKEN` (see [Configuration](#️-configuration)) to show the nearest station's reading on the gauge. Stations more than 40 km from a city are ignored.
+- **Model vs stations.** CAMS estimates air quality on a ~40 km grid. Ground monitors used by Punjab EPD and most apps pick up local smog that the grid smooths out, so they often read higher in winter. Set `AQICN_TOKEN` (see [Configuration](#configuration)) to show the nearest station's reading on the gauge. Stations more than 40 km from a city are ignored.
 - **Averaging window.** The gauge shows the current hour; forecasts are daily averages. The two can differ by 50+ points on the same day.
 - **Index.** PEARLSAQI always uses the US EPA AQI scale (0–500).
 
@@ -171,7 +171,7 @@ The forecasting model is trained on CAMS data, so forecasts stay on that scale e
 
 ---
 
-## 🤖 Machine Learning
+## Machine Learning
 
 ### Model
 
@@ -203,7 +203,7 @@ SHAP `TreeExplainer` explains every forecast day and every scenario run. LIME an
 
 ---
 
-## 🔮 Forecasting
+## Forecasting
 
 Forecasts are **recursive**: each day's prediction becomes the next day's AQI history.
 
@@ -219,7 +219,7 @@ The daily pipeline also runs the V9 forecast engine (`src/ml/forecast_engine_v9.
 
 ---
 
-## 🔌 API Reference
+## API Reference
 
 The Flask backend (`app.py`) runs on `http://localhost:5000`.
 
@@ -240,7 +240,7 @@ curl http://localhost:5000/api/predict/Lahore
 
 ---
 
-## ⚙️ Automation
+## Automation
 
 Two GitHub Actions workflows keep the data current. Both commit the updated `database/aqi.duckdb` back to `main`.
 
@@ -261,7 +261,7 @@ python -m src.pipelines.hourly_to_daily_pipeline
 
 ---
 
-## 🚀 Running Locally
+## Running Locally
 
 **Requirements:** Python 3.11+ and Node.js 20+.
 
@@ -312,7 +312,7 @@ npm run build
 
 ---
 
-## 🛠️ Configuration
+## Configuration
 
 Copy `.env.example` to `.env` in the project root:
 
@@ -324,7 +324,7 @@ Copy `.env.example` to `.env` in the project root:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 PEARLSAQI/
@@ -357,7 +357,7 @@ PEARLSAQI/
 
 ---
 
-## 🧰 Technology Stack
+## Technology Stack
 
 | Layer | Technology |
 |---|---|
@@ -372,7 +372,7 @@ PEARLSAQI/
 
 ---
 
-## 🧭 Limitations & Future Work
+## Limitations & Future Work
 
 - **Model-based data.** Default readings come from the CAMS model, not ground stations, and can underestimate local smog. Station readings are optional and shown only on the live gauge.
 - **Held pollutants.** Recursive forecasts hold pollutants at today's levels. Using CAMS pollutant forecasts as inputs could improve Day 2 and Day 3.
