@@ -1,1299 +1,384 @@
 # 🇵🇰 PEARLSAQI — Pakistan AQI Prediction & Forecasting Platform
 
 <p align="center">
-  <strong>Predicting Air Quality Across Pakistan with Machine Learning, Forecasting & Explainable AI</strong>
+  <strong>Live air quality, 3-day AQI forecasts and explainable machine learning for 12 Pakistani cities</strong>
 </p>
 
 <p align="center">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.x-blue?logo=python">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11%2B-blue?logo=python">
   <img alt="XGBoost" src="https://img.shields.io/badge/ML-XGBoost-orange">
   <img alt="DuckDB" src="https://img.shields.io/badge/Database-DuckDB-yellow">
+  <img alt="Flask" src="https://img.shields.io/badge/API-Flask-black?logo=flask">
   <img alt="React" src="https://img.shields.io/badge/Frontend-React-61DAFB?logo=react">
   <img alt="Vite" src="https://img.shields.io/badge/Build-Vite-646CFF?logo=vite">
-  <img alt="Flask" src="https://img.shields.io/badge/API-Flask-black?logo=flask">
-  <img alt="Docker" src="https://img.shields.io/badge/Deployment-Docker-2496ED?logo=docker">
   <img alt="GitHub Actions" src="https://img.shields.io/badge/Automation-GitHub%20Actions-2088FF?logo=githubactions">
+</p>
+
+<p align="center">
+  <img src="screenshots/dashboard.png" alt="PEARLSAQI dashboard showing Lahore's live AQI gauge, pollutant cards and city overview" width="100%">
 </p>
 
 ---
 
 ## 🌫️ What is PEARLSAQI?
 
-**PEARLSAQI** is an end-to-end Air Quality Index (AQI) prediction and forecasting platform built for major cities across Pakistan.
+PEARLSAQI is an end-to-end air quality platform for Pakistan. It collects hourly air-quality and weather data, stores it in DuckDB, engineers 108 features, and uses an XGBoost model to forecast the next three days of AQI for each city. A Flask API serves the results to a React dashboard that explains every prediction with SHAP.
 
-The system transforms environmental observations into actionable **24-hour, 48-hour, and 72-hour AQI forecasts** through a complete machine-learning pipeline:
+**Cities covered:** Karachi, Lahore, Islamabad, Peshawar, Rawalpindi, Faisalabad, Multan, Quetta, Hyderabad, Gujranwala, Sialkot and Bahawalpur.
 
-```text
-Environmental Data
-       ↓
-Data Ingestion
-       ↓
-DuckDB + Parquet Storage
-       ↓
-Feature Engineering
-       ↓
-XGBoost Prediction
-       ↓
-24h / 48h / 72h Forecasting
-       ↓
-SHAP / LIME Explainability
-       ↓
-Flask REST API
-       ↓
-React + Vite Dashboard
-```
+### Highlights
 
-Rather than being only a trained ML model, PEARLSAQI is designed as a complete application covering **data engineering, machine learning, forecasting, explainability, monitoring, visualization, and automation**.
+- **Live conditions** for the current hour: US AQI, six pollutants and weather.
+- **3-day recursive forecast**: each day's prediction feeds the next one.
+- **Hourly outlook** for the next 36 hours, including the best time to go outside.
+- **What-if simulator**: change pollutants or weather and see how the forecast responds.
+- **Explainability**: SHAP contributions for all 108 features, for every forecast day.
+- **Health guidance**: WHO-guideline comparison, mask, exercise and ventilation advice.
+- **Automated pipelines**: GitHub Actions refreshes the data every hour and runs the full production pipeline daily.
 
 ---
 
-## 🇵🇰 Cities Covered
+## 📚 Table of Contents
 
-PEARLSAQI currently supports **12 cities across Pakistan**:
-
-| # | City | # | City |
-|---|---|---|---|
-| 01 | Karachi | 07 | Multan |
-| 02 | Lahore | 08 | Quetta |
-| 03 | Islamabad | 09 | Hyderabad |
-| 04 | Peshawar | 10 | Gujranwala |
-| 05 | Rawalpindi | 11 | Sialkot |
-| 06 | Faisalabad | 12 | Bahawalpur |
-
-The multi-city design allows the same forecasting platform to provide city-specific AQI information while maintaining a shared feature and prediction architecture.
-
----
-
-# 📚 Table of Contents
-
-- [What is PEARLSAQI?](#-what-is-pearlsaqi)
-- [Cities Covered](#-cities-covered)
-- [Project Objectives](#-project-objectives)
-- [Core Capabilities](#-core-capabilities)
-- [System Architecture](#-system-architecture)
-- [Data Pipeline](#-data-pipeline)
-- [Data Sources](#-data-sources)
-- [Data Storage](#-data-storage)
-- [Feature Engineering](#-feature-engineering)
+- [Dashboard Tour](#-dashboard-tour)
+- [System Architecture](#️-system-architecture)
+- [Data Sources & Accuracy](#-data-sources--accuracy)
 - [Machine Learning](#-machine-learning)
-- [Model Evaluation](#-model-evaluation)
-- [Forecasting Strategy](#-forecasting-strategy)
-- [Forecast Evaluation](#-forecast-evaluation)
-- [Explainable AI](#-explainable-ai)
-- [Backend & API](#-backend--api)
-- [Frontend Dashboard](#-frontend-dashboard)
-- [Dashboard Screenshots](#-dashboard-screenshots)
-- [Automation](#-automation)
-- [Monitoring](#-monitoring)
+- [Forecasting](#-forecasting)
+- [API Reference](#-api-reference)
+- [Automation](#️-automation)
+- [Running Locally](#-running-locally)
+- [Configuration](#️-configuration)
 - [Project Structure](#-project-structure)
 - [Technology Stack](#-technology-stack)
-- [Running Locally](#-running-locally)
-- [Docker](#-docker)
-- [Validation & Testing](#-validation--testing)
-- [Design Decisions](#-design-decisions)
-- [Limitations](#-limitations)
-- [Future Improvements](#-future-improvements)
-- [Conclusion](#-conclusion)
+- [Limitations & Future Work](#-limitations--future-work)
 
 ---
 
-# 🎯 Project Objectives
+## 🧭 Dashboard Tour
 
-The project was designed around the following objectives:
+### Overview
 
-1. Collect and maintain AQI and environmental data for major Pakistani cities.
-2. Build a reproducible feature-engineering pipeline for time-series AQI prediction.
-3. Develop a machine-learning model capable of predicting future AQI.
-4. Produce separate **24-hour, 48-hour, and 72-hour** forecasts.
-5. Incorporate future weather information into the forecasting process.
-6. Provide model explanations using SHAP and LIME.
-7. Expose predictions through a backend API.
-8. Present results through an interactive web dashboard.
-9. Monitor forecast performance against actual AQI observations.
-10. Automate recurring data and operational workflows.
+The overview shows the selected city's current-hour AQI on a gauge that runs from green (good) to red (hazardous), with the observation time underneath. Six pollutant cards plot the city's real readings for the last 14 days. The sidebar's **Pakistan right now** card shows the most polluted and cleanest city, the national average, and how many cities are currently unhealthy.
+
+### Cities
+
+Every monitored city with its landmark, current AQI and category. Click a card to load that city.
+
+<p align="center">
+  <img src="screenshots/cities.png" alt="Grid of 12 Pakistani city cards with landmark photos and AQI values" width="100%">
+</p>
+
+### Pakistan AQI Map
+
+Each city marker is coloured by its US EPA category and labelled with its AQI, so regional patterns such as Punjab's winter smog are visible at a glance.
+
+<p align="center">
+  <img src="screenshots/map.png" alt="Map of Pakistan with colour-coded AQI markers for each city" width="100%">
+</p>
+
+### AQI Forecast & Hourly Outlook
+
+The model's predicted daily average AQI for the next three days, followed by an hourly chart covering the last 12 and next 36 hours. The hourly outlook highlights the cleanest 3-hour daytime window, the worst upcoming hour, and how many hours exceed 150.
+
+<p align="center">
+  <img src="screenshots/forecast.png" alt="Three forecast cards and an hourly AQI outlook chart with best time outside" width="100%">
+</p>
+
+### Air Quality Insights
+
+- **Pollution Breakdown:** current pollutant levels, and the pollutant furthest above its WHO daily guideline.
+- **Health Recommendation:** guidance for the current AQI, plus practical advice on outdoor exercise, masks and windows.
+- **Compare Cities:** a side-by-side comparison of any cities you choose.
+
+<p align="center">
+  <img src="screenshots/insights.png" alt="Pollution breakdown, health recommendation and city comparison panels" width="100%">
+</p>
+
+A city directory and a live ranking of all 12 cities follow; click any row to open that city.
+
+<p align="center">
+  <img src="screenshots/ranking.png" alt="City directory and live AQI ranking of all monitored cities" width="100%">
+</p>
+
+### Scenario Simulator
+
+Start from the exact daily values the model used, adjust any of the nine inputs (or pick a preset such as *Heavy Smog* or *After Rain*), and run the model. The result shows the baseline vs scenario AQI, the change, which inputs you changed, a 3-day scenario forecast, and the SHAP features that drove the difference.
+
+<p align="center">
+  <img src="screenshots/scenario-simulator.png" alt="Scenario simulator with Heavy Smog preset applied to Lahore and its SHAP explanation" width="100%">
+</p>
+
+### Model Explainability
+
+SHAP contributions for each of the three forecast days, paged through all 108 features. Red bars push the prediction up, green bars pull it down.
+
+<p align="center">
+  <img src="screenshots/explainability.png" alt="SHAP feature contributions for forecast days 1 to 3" width="100%">
+</p>
+
+### How it works
+
+**Learn More** in the footer opens an explanation of what the numbers mean, why they can differ from official sources, and the model's measured accuracy.
+
+<p align="center">
+  <img src="screenshots/about.png" alt="How PEARLSAQI works dialog" width="70%">
+</p>
+
+🎥 A recording of an earlier version of the dashboard is in [`screenshots/Project Demo.mp4`](screenshots/Project%20Demo.mp4).
 
 ---
 
-# ✨ Core Capabilities
-
-### 📡 Environmental Data
-- AQI data ingestion
-- Weather observations
-- Future weather forecasts
-- Pollutant information
-- Historical data processing
-
-### 🧠 Machine Learning
-- V4 feature engineering
-- ~108 predictive features
-- XGBoost regression
-- Chronological/time-aware validation
-- Model artifact storage
-- Model versioning
-
-### 🔮 Forecasting
-- 24-hour AQI forecast
-- 48-hour AQI forecast
-- 72-hour AQI forecast
-- Recursive multi-step forecasting
-- Future-weather-aware inference
-- Historical forecast replay/evaluation
-
-### 🔍 Explainability
-- SHAP analysis
-- LIME analysis
-- Feature importance
-- Local prediction contributions
-
-### 🖥️ Application
-- Flask REST backend
-- React + Vite frontend
-- Interactive Pakistan map
-- City-level AQI cards
-- Forecast charts
-- Weather information
-- Model metrics
-- Explainability views
-- AQI alerts
-
-### ⚙️ Operations
-- GitHub Actions automation
-- DuckDB database
-- Parquet feature store
-- Docker support
-- Forecast monitoring
-- Error analysis
-
----
-
-# 🏗️ System Architecture
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart TD
-    A[Open-Meteo AQI & Weather APIs] --> B[Data Ingestion Pipelines]
+    A[Open-Meteo<br/>air quality + weather APIs] -->|hourly| B[Hourly ingestion pipeline]
+    B --> C[(DuckDB<br/>aqi_hourly / weather_hourly)]
+    C -->|hourly| D[Hourly-to-daily pipeline]
+    D --> E[(DuckDB<br/>aqi / weather daily tables)]
 
-    B --> C[Historical Data]
-    B --> D[Live Data]
-    B --> E[Future Weather Forecasts]
+    E -->|daily| F[Daily production pipeline]
+    F --> G[V4 feature engineering<br/>108 features]
+    G --> H[Auto-retrain check<br/>+ model registry]
+    H --> I[V9 recursive forecast<br/>+ evaluation]
 
-    C --> F[(DuckDB)]
-    D --> F
-    E --> F
-
-    F --> G[Parquet Feature Store]
-
-    G --> H[Feature Engineering]
-    H --> I[Temporal Features]
-    H --> J[AQI & Pollutant Features]
-    H --> K[Weather Features]
-    H --> L[Lag / Rolling / Trend Features]
-    H --> M[Interaction Features]
-
-    I --> N[XGBoost Model]
-    J --> N
-    K --> N
-    L --> N
-    M --> N
-
-    N --> O[Forecast Engine]
-
-    O --> P[24 Hour]
-    O --> Q[48 Hour]
-    O --> R[72 Hour]
-
-    O --> S[Forecast Evaluation]
-    O --> T[SHAP / LIME]
-
-    O --> U[Flask REST API]
-    U --> V[React + Vite Dashboard]
-
-    W[GitHub Actions] --> B
-    W --> N
-    W --> O
+    E --> J[Flask API]
+    A -->|current hour| J
+    K[Optional: WAQI ground stations] -.-> J
+    J --> L[React + Vite dashboard]
 ```
 
----
-
-# 🔄 Data Pipeline
-
-PEARLSAQI follows a complete environmental-data-to-forecast workflow.
-
-## 1. Data Ingestion
-
-The ingestion layer retrieves environmental information from **Open-Meteo**, including air-quality and weather variables.
-
-The system works with variables such as:
-
-- AQI
-- PM2.5-related pollution information
-- Temperature
-- Humidity
-- Precipitation
-- Wind speed
-- Other available environmental variables
+The Flask API builds its model features directly from the daily tables in `database/aqi.duckdb`, using the same feature code as training, and rebuilds them whenever the database file changes. The dashboard is therefore always as fresh as the database the hourly pipeline maintains.
 
 ---
 
-## 2. Historical Data
+## 📡 Data Sources & Accuracy
 
-Historical observations are processed into a consistent structure before being used by the feature pipeline.
+| Source | Used for | Key needed |
+|---|---|---|
+| [Open-Meteo Air Quality API](https://open-meteo.com/en/docs/air-quality-api) (CAMS model) | Hourly US AQI and pollutants (PM2.5, PM10, NO₂, SO₂, CO, O₃), history and 4-day forecast | No |
+| [Open-Meteo Weather APIs](https://open-meteo.com/) | Temperature, humidity, precipitation, wind: history, current and forecast | No |
+| [World Air Quality Index (WAQI)](https://aqicn.org/data-platform/token/) | Optional ground-station readings for the live gauge | Free token |
 
-Historical data supports:
+### Why the numbers can differ from Google or Punjab EPD
 
-- Model training
-- Feature generation
-- Backtesting
-- Forecast evaluation
-- Error analysis
+- **Model vs stations.** CAMS estimates air quality on a ~40 km grid. Ground monitors used by Punjab EPD and most apps pick up local smog that the grid smooths out, so they often read higher in winter. Set `AQICN_TOKEN` (see [Configuration](#️-configuration)) to show the nearest station's reading on the gauge. Stations more than 40 km from a city are ignored.
+- **Averaging window.** The gauge shows the current hour; forecasts are daily averages. The two can differ by 50+ points on the same day.
+- **Index.** PEARLSAQI always uses the US EPA AQI scale (0–500).
 
----
-
-## 3. Live Data
-
-The live pipeline updates the latest available environmental information and makes it available to the forecasting system.
+The forecasting model is trained on CAMS data, so forecasts stay on that scale even when the gauge shows a station reading.
 
 ---
 
-## 4. Future Weather
+## 🤖 Machine Learning
 
-Future weather information is stored separately in:
+### Model
 
-```text
-weather_forecasts
-```
+The served model is **XGBoost V4 Final 108**, an `XGBRegressor` that predicts the next day's average AQI from 108 engineered features:
 
-This separation is important because historical observations and future forecast vintages serve different purposes.
-
-For historical replay, the forecasting system constrains weather selection by the forecast origin so that information issued after the simulated forecast time is not accidentally introduced.
-
----
-
-## 5. Feature Generation
-
-The latest environmental context is transformed into the model's ordered feature representation.
-
----
-
-## 6. Prediction
-
-The trained XGBoost model produces AQI predictions for the requested forecast horizons.
-
----
-
-## 7. Evaluation
-
-Predictions are stored alongside actual AQI observations when those observations become available.
-
-This allows the system to measure:
-
-- Error
-- Absolute error
-- Forecast accuracy
-- Horizon-specific performance
-
----
-
-# 🌦️ Data Sources
-
-## Open-Meteo
-
-Open-Meteo is the current primary external environmental data source.
-
-It is used for:
-
-- Air-quality data
-- AQI-related variables
-- Weather observations
-- Temperature
-- Humidity
-- Precipitation
-- Wind speed
-- Weather forecasts
-- Historical/forecast weather workflows
-
-Using a consistent source simplifies the data pipeline and makes the project easier to reproduce.
-
----
-
-# 🗄️ Data Storage
-
-## DuckDB
-
-The main analytical database is:
-
-```text
-database/aqi.duckdb
-```
-
-DuckDB was selected because it provides:
-
-- Fast analytical SQL
-- Local deployment
-- Simple Python integration
-- No database server requirement
-- Convenient development and testing
-- Efficient analytical queries
-
-The database stores core environmental and forecasting information.
-
----
-
-## Parquet Feature Store
-
-The project uses Parquet as its local feature-store layer:
-
-```text
-data/feature_store/
-├── historical_features.parquet
-└── live_features.parquet
-```
-
-Parquet provides an efficient columnar format for:
-
-- Feature storage
-- Model inference
-- Reproducibility
-- Local analysis
-- Efficient data loading
-
-The final architecture does **not** depend on Hopsworks or n8n.
-
----
-
-# 🧬 Feature Engineering
-
-Feature engineering is one of the most important components of PEARLSAQI.
-
-The V4 feature set contains approximately **108 predictive features** combining temporal, pollution, weather, statistical, and interaction information.
-
-## Feature Families
-
-| Feature Family | Examples |
+| Family | Examples |
 |---|---|
-| AQI | Current AQI, lags, changes, rolling statistics, trends |
-| Pollutants | Pollutant values, changes, rolling statistics |
-| Weather | Temperature, humidity, precipitation, wind speed |
-| Temporal | Month, day, cyclical features, seasonal patterns |
-| Rolling | Rolling mean, standard deviation, minimum, maximum |
-| Trends | Differences, changes, trend/momentum features |
-| Ratios | Pollution ratios and interaction features |
-| City History | Historical city-level statistics |
-| Regimes | AQI regime/category-related features |
+| AQI history | lags (1–14 days), changes, acceleration, rolling mean/std/min/max, trends, percentiles |
+| Pollutants | levels, 1- and 3-day changes, rolling means, trends |
+| Interactions | PM2.5/PM10 ratio, PM2.5 × NO₂/CO/O₃, pollution sum, `pm25_pollution_ratio` |
+| Weather | temperature, humidity, precipitation, wind and their changes |
+| Regimes | AQI category flags, regime changes, recent extreme days |
+| City history | expanding city mean/std, 30-day recent mean and max |
+| Calendar | month and day-of-year (sin/cos), weekday, weekend |
 
-### AQI Temporal Features
-
-The model uses historical AQI context through:
-
-- Lag features
-- AQI changes
-- Rolling statistics
-- Trends
-- Regime information
-- City history
-
-### Weather Features
-
-Weather information includes:
-
-- Temperature
-- Humidity
-- Precipitation
-- Wind speed
-- Weather changes
-- Rolling weather statistics
-
-### Pollution Features
-
-Pollution-related features include:
-
-- Pollutant measurements
-- Pollutant lags
-- Pollutant changes
-- Rolling pollutant statistics
-- Pollution interactions
-- Pollution ratios
-- Pollution sum
-
-### Calendar Features
-
-Calendar information helps the model learn recurring patterns:
-
-- Month
-- Day
-- Day-of-week patterns
-- Cyclical time representations
-- Seasonal effects
-
----
-
-## ⭐ Additional V4 Feature
-
-One of the important engineered features evaluated during V4 development was:
-
-```text
-pm25_pollution_ratio
-```
-
-This feature captures the relationship between PM2.5 pollution and the broader pollution context rather than relying only on absolute pollutant values.
-
----
-
-# 🤖 Machine Learning
-
-## XGBoost
-
-XGBoost is the primary production model family used by the current PEARLSAQI forecasting architecture.
-
-AQI forecasting is a highly non-linear tabular problem involving:
-
-- Historical dependencies
-- Weather interactions
-- Pollution relationships
-- Temporal patterns
-- City-specific behavior
-- Rolling statistics
-
-XGBoost is well suited to these engineered tabular relationships.
-
----
-
-## Representative Configuration
-
-The V4 training configuration includes:
-
-```python
-XGBRegressor(
-    n_estimators=500,
-    learning_rate=0.05,
-    max_depth=6,
-    min_child_weight=3,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    objective="reg:squarederror",
-    eval_metric="rmse",
-    random_state=42,
-    n_jobs=-1
-)
-```
-
-The fixed random seed improves reproducibility.
-
----
-
-# 📊 Model Evaluation
-
-A V4 candidate model using approximately **108 predictive features** achieved the following evaluation results during development:
+### Accuracy (held-out test data)
 
 | Metric | Result |
 |---|---:|
-| **RMSE** | **≈ 13.37** |
-| **MAE** | **≈ 8.80** |
-| **R²** | **≈ 0.913** |
-
-These are candidate/evaluation results for the V4 model development process and should be interpreted with respect to the validation dataset and evaluation procedure used.
-
-Candidate artifacts include:
-
-```text
-models/
-└── benchmark/
-    └── v4/
-        └── final_candidate/
-            ├── xgboost_v4_final_108.pkl
-            └── feature_columns.json
-```
-
----
-
-# 🔮 Forecasting Strategy
-
-PEARLSAQI provides three primary user-facing horizons:
-
-```text
-24 Hours
-48 Hours
-72 Hours
-```
-
-The current forecasting engine is:
-
-```text
-src/ml/forecast_engine_v9.py
-```
-
-## Recursive Multi-Step Forecasting
-
-The engine maintains a working prediction state and generates future predictions recursively.
-
-Conceptually:
-
-```text
-Current Observation
-       │
-       ▼
-   ┌────────┐
-   │ Model  │
-   └───┬────┘
-       │
-       ├──────────────► 24h AQI
-       │
-       ▼
- Updated Forecast State
-       │
-       ▼
-   ┌────────┐
-   │ Model  │
-   └───┬────┘
-       │
-       ├──────────────► 48h AQI
-       │
-       ▼
- Updated Forecast State
-       │
-       ▼
-   ┌────────┐
-   │ Model  │
-   └───┬────┘
-       │
-       └──────────────► 72h AQI
-```
-
-A standard forecast run produces:
-
-```text
-12 cities × 3 horizons = 36 forecast rows
-```
-
-The user-facing output contains the three requested horizons without exposing an unnecessary bridge day.
-
----
-
-# 🌤️ Future Weather Integration
-
-Future weather is retrieved from the `weather_forecasts` table.
-
-The forecast system uses:
-
-```sql
-SELECT temperature,
-       humidity,
-       precipitation,
-       windspeed
-FROM weather_forecasts
-WHERE city_id = ?
-  AND date = ?
-  AND forecast_origin <= ?
-ORDER BY forecast_origin DESC
-LIMIT 1;
-```
-
-The forecast-origin constraint is especially important during historical replay because it prevents future forecast vintages from leaking into historical simulations.
-
----
-
-# 📈 Forecast Evaluation
-
-Forecasts are compared against the actual AQI for the corresponding forecast date.
-
-The system stores:
-
-```text
-forecast_predictions
-```
-
-with information including:
-
-| Field | Purpose |
-|---|---|
-| city_id | City identifier |
-| city_name | City name |
-| origin_date | Date forecast was generated |
-| forecast_date | Date being predicted |
-| horizon | Forecast horizon |
-| predicted_aqi | Model prediction |
-| actual_aqi | Observed AQI |
-| error | Prediction error |
-| absolute_error | Absolute prediction error |
-| model_name | Model used |
-| created_at | Record timestamp |
-
-This structure enables horizon-specific backtesting and operational monitoring.
-
----
-
-# 🔍 Explainable AI
-
-A major goal of PEARLSAQI is to make predictions interpretable rather than treating the model as a black box.
-
-## SHAP
-
-SHAP can be used to analyze:
-
-- Global feature importance
-- Individual prediction contributions
-- Positive/negative feature effects
-- Model behavior
-
-Example questions:
-
-> Which features pushed the AQI prediction higher?
-
-> Which environmental conditions reduced the prediction?
-
-> Which features are most influential overall?
-
----
-
-## LIME
-
-LIME provides local explanations for individual predictions.
-
-It complements SHAP by providing a local approximation of model behavior around a specific prediction.
-
----
-
-## Explainability Architecture
-
-```text
-Forecast Request
-      ↓
-Model Prediction
-      ↓
-Explainability Layer
-      ├── SHAP
-      └── LIME
-      ↓
-Feature Contributions
-      ↓
-Dashboard
-```
-
-The system is designed so explainability failures do not invalidate an otherwise successful forecast.
-
----
-
-# 🖥️ Backend & API
-
-The backend is implemented with **Flask**.
-
-Its responsibilities include:
-
-- AQI data access
-- City information
-- Forecast retrieval
-- Weather information
-- Model information
-- Explainability data
-- Monitoring information
-- Alert information
-
-The backend separates data/ML logic from the frontend application.
-
----
-
-# 🎨 Frontend Dashboard
-
-The frontend is built with:
-
-- React
-- Vite
-- Recharts
-- React Leaflet
-- Leaflet
-- Lucide React
-
-The dashboard is designed to make complex model output understandable to a normal user.
-
-## Dashboard Components
-
-### 🇵🇰 Pakistan Map
-
-The interface visualizes supported cities geographically.
-
-```text
-Pakistan
- ├── Karachi
- ├── Lahore
- ├── Islamabad
- ├── Peshawar
- ├── Rawalpindi
- ├── Faisalabad
- ├── Multan
- ├── Quetta
- ├── Hyderabad
- ├── Gujranwala
- ├── Sialkot
- └── Bahawalpur
-```
-
-### AQI City Cards
-
-Each city can display:
-
-- Current AQI
-- AQI category
-- Weather
-- Forecast values
-- Trend information
-
-### Forecast Visualization
-
-The dashboard presents:
-
-```text
-24h ─────► Near-term forecast
-48h ─────► Medium-term forecast
-72h ─────► Longer forecast
-```
+| RMSE | 13.37 AQI |
+| MAE | 8.80 AQI |
+| R² | 0.913 |
+
+These measure next-day (Day 1) error. Day 2 and Day 3 are produced recursively, so their error is larger.
 
 ### Explainability
 
-Model explanations are surfaced through the dashboard so users can investigate why a prediction was made.
+SHAP `TreeExplainer` explains every forecast day and every scenario run. LIME and offline SHAP analysis scripts live in `src/explainability/`.
 
 ---
 
-# 📸 Dashboard Screenshots
+## 🔮 Forecasting
 
-The following screenshots showcase the main user-facing interfaces of PEARLSAQI.
-
-> **Screenshot assets:** All screenshots are stored in the repository's `screenshots/` folder. The filenames below match the project assets exactly.
-
-## 🏠 Overview Dashboard
-
-<p align="center">
-  <img src="screenshots/dashboard.png" alt="PEARLSAQI Overview Dashboard" width="100%">
-</p>
-
-The main overview brings together the selected city's live AQI, pollutant readings, weather conditions, forecast information, monitored-city cards, and key air-quality indicators in a single dashboard.
-
----
-
-## 🏙️ Cities Dashboard
-
-<p align="center">
-  <img src="screenshots/cities.png" alt="PEARLSAQI Cities Dashboard" width="100%">
-</p>
-
-The Cities interface provides a dedicated view of monitored Pakistani locations, allowing users to explore city-level AQI conditions and compare air-quality status across the supported coverage area.
-
----
-
-## 🔮 AQI Forecast
-
-<p align="center">
-  <img src="screenshots/forecast.png" alt="PEARLSAQI AQI Forecast" width="100%">
-</p>
-
-The AQI Forecast interface presents the production model's 24-hour, 48-hour, and 72-hour forecasting horizons together with forecast trends and supporting insights.
-
----
-
-## 🇵🇰 Pakistan AQI Map
-
-<p align="center">
-  <img src="screenshots/pak%20map.png" alt="PEARLSAQI Pakistan AQI Map" width="100%">
-</p>
-
-The Pakistan AQI view provides a geographic representation of live air-quality conditions across the monitored Pakistani cities, including city markers and AQI category information.
-
----
-
-## 🧪 Custom Scenario Simulator
-
-<p align="center">
-  <img src="screenshots/custom%20simulator.png" alt="PEARLSAQI Custom Scenario Simulator" width="100%">
-</p>
-
-The Custom Scenario Simulator lets users adjust pollution and weather variables and run a what-if simulation to investigate their potential effect on predicted AQI.
-
----
-
-## 🔍 Model Explainability
-
-<p align="center">
-  <img src="screenshots/explainability.png" alt="PEARLSAQI Model Explainability" width="100%">
-</p>
-
-The Model Explainability interface exposes feature-level model contributions, including SHAP drivers across the forecast horizons, so users can inspect which engineered features are contributing to predicted AQI.
-
----
-
-## 📊 Air Quality Insights
-
-<p align="center">
-  <img src="screenshots/insights.png" alt="PEARLSAQI Air Quality Insights" width="100%">
-</p>
-
-The Air Quality Insights interface combines pollution breakdowns, health guidance, city comparison, a monitored-city directory, live AQI ranking, and model-driven air-quality information.
-
----
-
-# 🎥 Project Demo
-
-See PEARLSAQI in action:
-
-[▶️ Watch the full dashboard demonstration](screenshots/Project%20Demo.mp4)
-
-The demo showcases the complete PEARLSAQI workflow, including live AQI monitoring, city exploration, Pakistan-wide AQI mapping, 24/48/72-hour forecasting, air-quality insights, custom scenario simulation, and SHAP-based model explainability.
----
-
-# ⚙️ Automation
-
-GitHub Actions is the final automation layer used by the project.
-
-Automation supports recurring operational tasks such as:
-
-- AQI database updates
-- Pipeline execution
-- Forecast generation
-- Model-related workflows
-- Monitoring/evaluation operations
-
-The final architecture does **not** rely on n8n.
-
----
-
-# 📡 Monitoring
-
-PEARLSAQI includes monitoring and evaluation components for:
-
-- Forecast predictions
-- Actual AQI
-- Prediction error
-- Absolute error
-- Historical forecast performance
-- Extreme residual analysis
-- Forecast validation
-
-This creates a feedback loop:
+Forecasts are **recursive**: each day's prediction becomes the next day's AQI history.
 
 ```text
-Prediction
-    ↓
-Actual AQI arrives
-    ↓
-Prediction vs Actual
-    ↓
-Error calculation
-    ↓
-Monitoring
-    ↓
-Model evaluation
+features(D)                        → AQI(D+1)   Day 1
+features(D+1, AQI = Day 1 result)  → AQI(D+2)   Day 2
+features(D+2, AQI = Day 2 result)  → AQI(D+3)   Day 3
+```
+
+For each future day, pollutants are held at the latest observed values, and weather comes from the observed `weather` table or the stored `weather_forecasts`. Expanding city statistics are recalculated over the full history, so the recursive features match the training features.
+
+The daily pipeline also runs the V9 forecast engine (`src/ml/forecast_engine_v9.py`), which applies calibration and stores 36 forecasts per day (12 cities × 3 days) in `forecast_predictions`. Those forecasts are later compared with actual AQI for monitoring.
+
+---
+
+## 🔌 API Reference
+
+The Flask backend (`app.py`) runs on `http://localhost:5000`.
+
+| Method | Endpoint | Returns |
+|---|---|---|
+| GET | `/health` | Model and data status |
+| GET | `/api/predict/<city>` | Current conditions and their source, pollutants, 3-day forecast with SHAP per day, model metrics, and the exact model inputs |
+| GET | `/api/hourly/<city>` | Hourly US AQI and PM2.5, past 12 h and next 36 h |
+| GET | `/api/trends/<city>` | Full daily AQI and pollutant history |
+| POST | `/api/scenario-predict` | What-if prediction. Body: `{"city": "Lahore", "scenario": {"pm25": 200, "wind_speed": 3}}` |
+| GET | `/api/model-stats` | All models in the local model registry |
+
+Example:
+
+```bash
+curl http://localhost:5000/api/predict/Lahore
 ```
 
 ---
 
-# 🚨 AQI Alerts
+## ⚙️ Automation
 
-The platform includes AQI alert functionality intended to communicate potentially hazardous AQI conditions.
+Two GitHub Actions workflows keep the data current. Both commit the updated `database/aqi.duckdb` back to `main`.
 
-Alerts can be integrated with the forecasting/monitoring layer to make the platform more useful for practical environmental awareness.
+| Workflow | Schedule | Does |
+|---|---|---|
+| **Hourly AQI Data Pipeline** | every hour at :17 | Downloads the latest hourly US AQI and weather for all 12 cities, rebuilds the daily tables, validates coverage |
+| **Daily AQI Production Pipeline** | 02:30 UTC | AQI and weather catch-up, future weather forecast, V4 feature engineering, dataset split, auto-retrain check (the production model is replaced only if a candidate is better), V9 forecast, forecast evaluation |
 
----
+### Repairing older hourly data
 
-# 📁 Project Structure
+The hourly workflow normally re-downloads the last 2 days. To re-download up to 92 days (for example after a data-source fix), open **Actions → Hourly AQI Data Pipeline → Run workflow** and set **past_days** to `92`. Locally, the same repair is:
 
-The repository is organized around separate data, ML, application, and operational responsibilities.
-
-```text
-aqi-predictor-v4/
-│
-├── backend/
-│
-├── screenshots/
-│   ├── dashboard.png
-│   ├── cities.png
-│   ├── forecast.png
-│   ├── pak map.png
-│   ├── custom simulator.png
-│   ├── explainability.png
-│   └── insights.png
-│
-├── frontend/
-│   ├── public/
-│   │   └── landmarks/
-│   └── src/
-│
-├── data/
-│   └── feature_store/
-│       ├── historical_features.parquet
-│       └── live_features.parquet
-│
-├── database/
-│   └── aqi.duckdb
-│
-├── models/
-│   └── benchmark/
-│
-├── scripts/
-│   ├── data/
-│   │   ├── download_historical_data.py
-│   │   ├── download_weather_history.py
-│   │   └── test_weather_download.py
-│   │
-│   ├── evaluation/
-│   │   ├── compare_production_baseline.py
-│   │   ├── evaluate_forecast_history.py
-│   │   ├── extreme_residual_error_analysis.py
-│   │   ├── verify_future_weather.py
-│   │   └── verify_weather_forecasts.py
-│   │
-│   ├── maintenance/
-│   │   ├── backfill.py
-│   │   ├── cleanup_monitoring.py
-│   │   ├── cleanup_weather_duplicates.py
-│   │   ├── create_forecast_table.py
-│   │   ├── create_monitoring_table.py
-│   │   ├── run_daily_pipeline.bat
-│   │   └── sync_features_to_database.py
-│   │
-│   └── inspect_*.py
-│
-├── src/
-│   ├── database/
-│   ├── ml/
-│   │   └── forecast_engine_v9.py
-│   └── pipelines/
-│
-├── public/
-│   └── pakistan.geojson
-│
-├── docker-compose.yml
-├── requirements.txt
-└── README.md
+```powershell
+$env:HOURLY_PAST_DAYS = 92
+python -m src.pipelines.hourly_ingestion_pipeline
+python -m src.pipelines.hourly_to_daily_pipeline
 ```
 
 ---
 
-# 🧰 Technology Stack
+## 🚀 Running Locally
 
-| Layer | Technology |
-|---|---|
-| Programming | Python |
-| Machine Learning | XGBoost |
-| Explainability | SHAP, LIME |
-| Database | DuckDB |
-| Feature Store | Apache Parquet |
-| Environmental Data | Open-Meteo |
-| Backend | Flask |
-| Frontend | React |
-| Frontend Tooling | Vite |
-| Charts | Recharts |
-| Maps | Leaflet / React Leaflet |
-| Icons | Lucide React |
-| Automation | GitHub Actions |
-| Containerization | Docker |
-| Data Processing | Pandas / NumPy |
+**Requirements:** Python 3.11+ and Node.js 20+.
 
----
-
-# 🚀 Running Locally
-
-## 1. Clone the repository
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/VrdaRehman01/PEARLSAQI.git
 cd PEARLSAQI
-```
 
-## 2. Create a Python environment
-
-### Windows
-
-```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-### Linux / macOS
-
-```bash
-python3 -m venv .venv
+# Windows
+.venv\Scripts\activate
+# Linux / macOS
 source .venv/bin/activate
+
+pip install -r requirements.txt
+
+cd frontend
+npm ci
+cd ..
 ```
 
-## 3. Install Python dependencies
+### 2. Start the backend (terminal 1)
 
 ```bash
-pip install -r requirements.txt
+python app.py
 ```
 
----
+Wait for `Running on http://127.0.0.1:5000`. The first start takes about 20 seconds while features are built from the database.
 
-# 🖥️ Start the Backend
+### 3. Start the frontend (terminal 2)
 
-From the project root, activate the virtual environment and run the Flask backend using the project's configured backend entry point.
-
-The backend is intended to run on:
-
-```text
-http://localhost:5000
-```
-
----
-
-# 🌐 Start the Frontend
-
-Move into the frontend directory:
-
-```powershell
+```bash
 cd frontend
-```
-
-Install dependencies:
-
-```powershell
-npm install
-```
-
-Start the development server:
-
-```powershell
 npm run dev
 ```
 
-The Vite development server normally runs on:
+Open **http://127.0.0.1:5173**. The Vite dev server forwards `/api` requests to the backend.
+
+### Production build
+
+```bash
+cd frontend
+npm run build
+```
+
+`python app.py` then serves the built dashboard from `frontend/dist` at http://127.0.0.1:5000.
+
+---
+
+## 🛠️ Configuration
+
+Copy `.env.example` to `.env` in the project root:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `AQICN_TOKEN` | *(empty)* | Optional [WAQI token](https://aqicn.org/data-platform/token/). When set, the live gauge shows the nearest ground station within 40 km. |
+| `PORT` | `5000` | Port for the Flask backend |
+| `HOURLY_PAST_DAYS` | `2` | Days of hourly history the hourly pipeline re-downloads (max 92) |
+
+---
+
+## 📁 Project Structure
 
 ```text
-http://localhost:5173
+PEARLSAQI/
+├── app.py                         # Flask API + serves the built dashboard
+├── frontend/                      # React + Vite dashboard
+│   ├── src/App.jsx
+│   └── public/landmarks/          # city photos and videos
+├── src/
+│   ├── pipelines/                 # hourly, hourly→daily and daily production pipelines
+│   ├── ingestion/                 # Open-Meteo downloaders
+│   ├── services/                  # weather history and forecast services
+│   ├── features/                  # V4 feature engineering
+│   ├── ml/                        # training, forecast engine V9, calibration, research
+│   ├── models/                    # local model registry
+│   ├── explainability/            # SHAP and LIME
+│   ├── database/                  # DuckDB connection, schema, repositories
+│   └── alerts/                    # AQI alert levels
+├── models/
+│   ├── benchmark/v4/final_candidate/   # served XGBoost V4 model
+│   ├── registry/                  # versioned models + registry.json
+│   └── forecast/calibration_v9/   # forecast calibration parameters
+├── database/aqi.duckdb            # main database, updated by GitHub Actions
+├── scripts/                       # data, evaluation and maintenance utilities
+├── notebooks/eda.ipynb            # exploratory data analysis
+├── screenshots/                   # README images
+├── .github/workflows/             # hourly and daily pipelines
+├── requirements.txt
+└── .env.example
 ```
 
 ---
 
-# 🐳 Docker
+## 🧰 Technology Stack
 
-The repository includes:
-
-```text
-docker-compose.yml
-```
-
-Docker provides a consistent environment for running the application and supporting services.
-
----
-
-# 🧪 Validation & Testing
-
-PEARLSAQI validates the system at multiple levels.
-
-## Data Validation
-
-- API response validation
-- Missing data checks
-- Duplicate detection
-- Weather-data validation
-- Historical data checks
-
-## Feature Validation
-
-- Feature count validation
-- Feature-column consistency
-- Missing-value checks
-- Historical/live compatibility
-- Feature-store validation
-
-## Model Validation
-
-- RMSE
-- MAE
-- R²
-- Baseline comparisons
-- Walk-forward evaluation
-- Residual analysis
-
-## Forecast Validation
-
-- 24-hour forecast evaluation
-- 48-hour forecast evaluation
-- 72-hour forecast evaluation
-- Actual-vs-predicted comparisons
-- Historical replay
-- Forecast-vintage leakage prevention
+| Layer | Technology |
+|---|---|
+| Machine learning | XGBoost, scikit-learn, TensorFlow (deep-learning baselines) |
+| Explainability | SHAP, LIME |
+| Data | pandas, NumPy, PyArrow, DuckDB |
+| Backend | Flask, Flask-CORS |
+| Frontend | React 19, Vite, Recharts, React Leaflet, Lucide |
+| Data sources | Open-Meteo (CAMS), optional WAQI |
+| Automation | GitHub Actions |
+| Containers | Docker, Docker Compose |
 
 ---
 
-# 🧠 Design Decisions
+## 🧭 Limitations & Future Work
 
-## Why DuckDB?
-
-DuckDB provides a lightweight analytical database without requiring a separate database server.
-
-This makes the system:
-
-- Easier to develop
-- Easier to deploy
-- Reproducible
-- Efficient for analytical queries
+- **Model-based data.** Default readings come from the CAMS model, not ground stations, and can underestimate local smog. Station readings are optional and shown only on the live gauge.
+- **Held pollutants.** Recursive forecasts hold pollutants at today's levels. Using CAMS pollutant forecasts as inputs could improve Day 2 and Day 3.
+- **Single model for all horizons.** Dedicated 48 h and 72 h models may reduce long-horizon error.
+- **Coverage.** 12 cities; the pipeline is designed to add more.
 
 ---
 
-## Why Parquet?
-
-Parquet is a columnar format that works well for ML feature storage.
-
-It provides:
-
-- Efficient reads
-- Compact storage
-- Easy Python integration
-- Reproducible feature datasets
-
----
-
-## Why XGBoost?
-
-AQI prediction depends on complex non-linear interactions between:
-
-- Pollution
-- Weather
-- Historical AQI
-- Seasonal patterns
-- City-specific conditions
-
-XGBoost is particularly effective for engineered tabular datasets with these characteristics.
-
----
-
-## Why Multiple Forecast Horizons?
-
-A single forecast horizon is not enough for practical AQI planning.
-
-The system therefore provides:
-
-```text
-24h → immediate planning
-48h → short-term planning
-72h → extended planning
-```
-
----
-
-## Why Future Weather?
-
-Weather influences air quality.
-
-Future weather forecasts allow the prediction pipeline to incorporate expected environmental conditions rather than relying only on historical weather.
-
----
-
-## Why Explainability?
-
-A prediction is more useful when users can understand the factors influencing it.
-
-SHAP and LIME provide an additional interpretability layer around the machine-learning model.
-
----
-
-# 🔐 Reproducibility
-
-The project emphasizes reproducibility through:
-
-- Source-controlled code
-- Explicit feature engineering
-- Stored feature-column definitions
-- Versioned model artifacts
-- DuckDB storage
-- Parquet feature storage
-- Fixed random seeds where applicable
-- Automated workflows
-- Documented forecasting logic
-
----
-
-# ⚠️ Limitations
-
-The current system has several practical limitations:
-
-1. Forecast accuracy depends on the quality and availability of external environmental data.
-2. Future weather forecast errors can affect multi-day AQI predictions.
-3. Recursive forecasting may accumulate errors at longer horizons.
-4. AQI methodologies can differ between providers, so values should be compared using the same source and definition.
-5. Model performance can vary across cities and pollution regimes.
-6. A fresh clone may require model artifacts and local data to be generated before the full forecasting workflow can operate.
-7. Local feature storage prioritizes reproducibility and simplicity but is not equivalent to a large distributed feature-store infrastructure.
-8. The current project is designed around the Open-Meteo-based environmental data pipeline.
-
----
-
-# 🚀 Future Improvements
-
-Possible future development includes:
-
-- City-specific model specialization
-- Probabilistic AQI forecasting
-- Prediction intervals
-- Uncertainty estimation
-- Improved long-horizon forecasting
-- More extensive hyperparameter optimization
-- Additional environmental data sources
-- More advanced temporal neural architectures
-- Automated drift detection
-- More sophisticated model retraining policies
-- Improved alert automation
-- More extensive dashboard analytics
-- Deployment to a managed cloud environment
-
----
-
-# 📌 Project Status
-
-PEARLSAQI currently represents a complete integrated prototype/production-oriented forecasting platform with:
-
-```text
-✅ 12 Pakistani cities
-✅ Environmental data ingestion
-✅ DuckDB analytical storage
-✅ Parquet feature store
-✅ V4 feature engineering
-✅ ~108 predictive features
-✅ XGBoost forecasting
-✅ 24h / 48h / 72h forecasting
-✅ Future weather integration
-✅ Forecast evaluation
-✅ SHAP / LIME explainability
-✅ Flask backend
-✅ React + Vite frontend
-✅ Pakistan map visualization
-✅ Monitoring
-✅ AQI alerts
-✅ GitHub Actions automation
-✅ Docker support
-```
-
----
-
-# 🏁 Conclusion
-
-PEARLSAQI brings together multiple disciplines into one end-to-end environmental intelligence platform:
-
-```text
-Data Engineering
-       +
-Time-Series Feature Engineering
-       +
-Machine Learning
-       +
-Multi-Horizon Forecasting
-       +
-Explainable AI
-       +
-Backend Engineering
-       +
-Frontend Development
-       +
-Monitoring & Automation
-       =
-PEARLSAQI
-```
-
-The platform is designed to move beyond a simple AQI prediction notebook and provide a practical system capable of collecting environmental data, generating engineered features, producing multi-horizon AQI forecasts, explaining model behavior, exposing predictions through an API, visualizing results through an interactive dashboard, and supporting ongoing monitoring.
-
-Its current architecture uses **Open-Meteo, DuckDB, Parquet, XGBoost, SHAP/LIME, Flask, React/Vite, GitHub Actions, and Docker** to provide a reproducible and extensible foundation for AQI forecasting across Pakistan.
-
----
-
-## 📜 License
-
-This project is intended for academic, research, and development purposes.
-
-See the repository for the applicable project/license terms.
+<p align="center">Built for cleaner air in Pakistan 🇵🇰</p>
