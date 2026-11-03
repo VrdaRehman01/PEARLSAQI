@@ -48,6 +48,7 @@ PEARLSAQI is an end-to-end air quality platform for Pakistan. It collects hourly
 - [API Reference](#api-reference)
 - [Automation](#automation)
 - [Running Locally](#running-locally)
+- [Deployment](#deployment)
 - [Configuration](#configuration)
 - [Project Structure](#project-structure)
 - [Technology Stack](#technology-stack)
@@ -312,6 +313,36 @@ npm run build
 
 ---
 
+## Deployment
+
+The dashboard is deployed as two services:
+
+| Part | Host | Config |
+|---|---|---|
+| Flask API | [Render](https://render.com) (free web service) | `render.yaml`, `requirements-api.txt` |
+| React dashboard | [Vercel](https://vercel.com) | `frontend/vercel.json` |
+
+Vercel forwards every `/api/*` request to the Render API, so the dashboard code is the same locally and in production.
+
+### 1. API on Render
+
+1. In Render, choose **New → Blueprint** and select this repository. Render reads `render.yaml` and creates the `pearlsaqi-api` web service.
+2. Optionally set `AQICN_TOKEN` under the service's **Environment** tab.
+3. Wait for the first deploy, then open `https://pearlsaqi-api.onrender.com/health`. It should return `"status": "ok"`.
+
+The API installs only `requirements-api.txt` (no TensorFlow or Jupyter) and peaks around 350 MB of memory, inside the free plan's 512 MB. It downloads the latest `database/aqi.duckdb` from GitHub every 30 minutes (`REMOTE_DATABASE_URL`), so the hourly database commits don't need redeploys; `render.yaml` tells Render to ignore them.
+
+> The free plan sleeps after 15 minutes without traffic. The first request after that takes about a minute while the service wakes up and builds its features.
+
+### 2. Dashboard on Vercel
+
+1. In the Vercel project, open **Settings → Build and Deployment** and set **Root Directory** to `frontend`.
+2. Redeploy. `frontend/vercel.json` builds the Vite app and forwards `/api/*` to Render.
+
+If Render gives the service a different address than `pearlsaqi-api.onrender.com`, update the `destination` in `frontend/vercel.json`.
+
+---
+
 ## Configuration
 
 Copy `.env.example` to `.env` in the project root:
@@ -321,6 +352,8 @@ Copy `.env.example` to `.env` in the project root:
 | `AQICN_TOKEN` | *(empty)* | Optional [WAQI token](https://aqicn.org/data-platform/token/). When set, the live gauge shows the nearest ground station within 40 km. |
 | `PORT` | `5000` | Port for the Flask backend |
 | `HOURLY_PAST_DAYS` | `2` | Days of hourly history the hourly pipeline re-downloads (max 92) |
+| `REMOTE_DATABASE_URL` | *(empty)* | Deployment only: URL of `database/aqi.duckdb` to download and refresh |
+| `DATABASE_REFRESH_SECONDS` | `1800` | How often the API checks `REMOTE_DATABASE_URL` for a newer database |
 
 ---
 
@@ -351,7 +384,9 @@ PEARLSAQI/
 ├── notebooks/eda.ipynb            # exploratory data analysis
 ├── screenshots/                   # README images
 ├── .github/workflows/             # hourly and daily pipelines
-├── requirements.txt
+├── requirements.txt               # full stack: pipelines, training, notebooks
+├── requirements-api.txt           # API only (used by Render)
+├── render.yaml                    # Render deployment
 └── .env.example
 ```
 

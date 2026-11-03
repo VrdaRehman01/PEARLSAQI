@@ -1628,6 +1628,78 @@ def frontend_routes(path):
 # START SERVER
 # ============================================================
 
+# ============================================================
+# REMOTE DATABASE SYNC (deployment)
+# ============================================================
+#
+# GitHub Actions commits a fresh database/aqi.duckdb every hour.
+# Redeploying on every commit would be wasteful, so a deployed API can
+# set REMOTE_DATABASE_URL to the raw GitHub URL of that file and keep
+# its copy current. The feature cache is keyed on the file's mtime, so
+# replacing the file is enough to rebuild features on the next request.
+
+_database_etag = {"value": None}
+
+
+def sync_remote_database():
+    """Download the remote database if it changed. Never raises."""
+
+    url = os.environ.get("REMOTE_DATABASE_URL", "").strip()
+
+    if not url:
+        return False
+
+    headers = {}
+    if _database_etag["value"] and os.path.exists(DATABASE_FILE):
+        headers["If-None-Match"] = _database_etag["value"]
+
+    temp_file = DATABASE_FILE + ".download"
+
+    try:
+        with requests.get(url, headers=headers, stream=True, timeout=120) as response:
+
+            if response.status_code == 304:
+                return False
+
+            response.raise_for_status()
+
+            with open(temp_file, "wb") as handle:
+                for chunk in response.iter_content(chunk_size=1 << 20):
+                    handle.write(chunk)
+
+        # Atomic swap: readers open short-lived connections, so they see
+        # either the old or the new file, never a partial one.
+        os.replace(temp_file, DATABASE_FILE)
+        _database_etag["value"] = response.headers.get("ETag")
+        print("Remote database updated:", url)
+        return True
+
+    except (requests.RequestException, OSError) as error:
+        print("REMOTE DATABASE SYNC ERROR:", error)
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        return False
+
+
+def _database_sync_loop():
+
+    interval = int(os.environ.get("DATABASE_REFRESH_SECONDS", "1800"))
+
+    while True:
+        sync_remote_database()
+        time.sleep(interval)
+
+
+if os.environ.get("REMOTE_DATABASE_URL", "").strip():
+
+    # Without a local copy nothing can be served, so fetch it before
+    # accepting requests; later refreshes run in the background.
+    if not os.path.exists(DATABASE_FILE):
+        sync_remote_database()
+
+    threading.Thread(target=_database_sync_loop, daemon=True).start()
+
+
 if __name__ == "__main__":
 
     print("=" * 70)

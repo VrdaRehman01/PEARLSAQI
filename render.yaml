@@ -1,0 +1,34 @@
+# Render Blueprint for the PEARLSAQI Flask API.
+# Render dashboard → New → Blueprint → select this repository.
+
+services:
+  - type: web
+    name: pearlsaqi-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-api.txt
+    # One worker keeps memory under the free plan's 512 MB (the API
+    # peaks around 350 MB); threads handle the dashboard's parallel calls.
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      # The hourly pipeline commits database/aqi.duckdb every hour. The
+      # API downloads it itself (REMOTE_DATABASE_URL), so those commits
+      # must not trigger a redeploy.
+      ignoredPaths:
+        - database/**
+        - frontend/**
+        - screenshots/**
+        - notebooks/**
+        - analytics/**
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: REMOTE_DATABASE_URL
+        value: https://raw.githubusercontent.com/VrdaRehman01/PEARLSAQI/main/database/aqi.duckdb
+      - key: DATABASE_REFRESH_SECONDS
+        value: "1800"
+      # Optional ground-station readings; set the value in the Render dashboard.
+      - key: AQICN_TOKEN
+        sync: false
