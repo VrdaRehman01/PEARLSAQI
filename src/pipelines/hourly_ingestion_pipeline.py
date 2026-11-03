@@ -230,6 +230,24 @@ def create_tables(conn):
         """
     )
 
+    # Upcoming hours (CAMS forecast) for the dashboard's hourly outlook.
+    # Kept separate from aqi_hourly, which holds observations only, and
+    # replaced per city on every run.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS aqi_hourly_forecast (
+            city_id INTEGER NOT NULL,
+            city_name VARCHAR,
+            timestamp TIMESTAMP NOT NULL,
+            aqi DOUBLE,
+            pm25 DOUBLE,
+            fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            UNIQUE(city_id, timestamp)
+        )
+        """
+    )
+
 
 # ============================================================
 # AIR QUALITY API
@@ -257,7 +275,9 @@ def fetch_air_quality(city):
         # older hours, e.g. to repair a backfill.
         "past_days": PAST_DAYS,
 
-        "forecast_days": 1,
+        # Today plus two days ahead: future hours feed the forecast
+        # table, never the observations.
+        "forecast_days": 3,
     }
 
     return get_json(OPEN_METEO_AIR_URL, params)
@@ -288,6 +308,48 @@ def fetch_weather(city):
     }
 
     return get_json(OPEN_METEO_WEATHER_URL, params)
+
+
+# ============================================================
+# SAVE AIR QUALITY FORECAST
+# ============================================================
+
+def save_air_forecast(conn, city, payload):
+    """Replace the city's stored forecast with this run's future hours."""
+
+    hourly = payload.get("hourly", {})
+    times = hourly.get("time", [])
+    aqi = hourly.get("us_aqi", [])
+    pm25 = hourly.get("pm2_5", [])
+
+    rows = [
+        [
+            city["city_id"],
+            city["city_name"],
+            timestamp,
+            aqi[i] if i < len(aqi) else None,
+            pm25[i] if i < len(pm25) else None,
+        ]
+        for i, timestamp in enumerate(times)
+        if is_future_hour(timestamp)
+    ]
+
+    conn.execute(
+        "DELETE FROM aqi_hourly_forecast WHERE city_id = ?",
+        [city["city_id"]],
+    )
+
+    if rows:
+        conn.executemany(
+            """
+            INSERT INTO aqi_hourly_forecast
+                (city_id, city_name, timestamp, aqi, pm25)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+    return len(rows)
 
 
 # ============================================================
@@ -529,6 +591,13 @@ def main():
 
         create_tables(conn)
 
+        # Observation tables must never hold hours that haven't happened.
+        # Older versions stored forecast hours there; drop any leftovers
+        # so they can't be read as observations.
+        now = datetime.now(PAKISTAN_TZ).replace(tzinfo=None)
+        for table in ("aqi_hourly", "weather_hourly"):
+            conn.execute(f"DELETE FROM {table} WHERE timestamp > ?", [now])
+
         total_aqi = 0
         total_weather = 0
         failed_cities = []
@@ -558,6 +627,17 @@ def main():
                     conn,
                     city,
                     air_payload,
+                )
+
+                forecast_count = save_air_forecast(
+                    conn,
+                    city,
+                    air_payload,
+                )
+
+                print(
+                    f"       Forecast hours  : "
+                    f"{forecast_count}"
                 )
 
                 weather_count = insert_weather(
