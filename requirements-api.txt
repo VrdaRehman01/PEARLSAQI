@@ -1,0 +1,17 @@
+# Minimal dependencies for serving the Flask API (app.py) in production.
+# The full requirements.txt adds training and notebook packages
+# (tensorflow, jupyter, ...) that the API never imports.
+
+numpy>=2.0
+pandas>=2.2.3
+pyarrow
+duckdb>=1.0.0
+scikit-learn
+xgboost
+joblib
+shap
+flask
+flask-cors
+requests
+python-dotenv
+gunicorn
