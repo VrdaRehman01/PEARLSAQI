@@ -19,7 +19,7 @@ services:
       ignoredPaths:
         - database/**
         - frontend/**
-        - screenshots/**
+        - docs/**
         - notebooks/**
     envVars:
       - key: PYTHON_VERSION
