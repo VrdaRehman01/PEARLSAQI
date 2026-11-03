@@ -9,7 +9,6 @@ joblib
 pyarrow
 duckdb
 flask
-streamlit
 matplotlib
 seaborn
 shap

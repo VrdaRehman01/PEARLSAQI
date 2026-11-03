@@ -1,6 +1,6 @@
 # Standard AQI category breakpoints (US EPA scale, which AQICN's
 # reported "aqi" value follows). Centralized here so app.py and
-# dashboard.py never disagree on what counts as "hazardous".
+# the dashboard never disagree on what counts as "hazardous".
 
 def get_alert(aqi):
     if aqi is None:
