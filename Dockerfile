@@ -1,29 +1,25 @@
-﻿FROM python:3.12-slim
+# PEARLSAQI Flask API — the same setup as the Render deployment.
+#
+#   docker compose up --build        → http://localhost:5000/health
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORT=5000 \
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        curl \
-        libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir -r requirements-api.txt
 
-COPY requirements-docker.txt .
+COPY app.py .
+COPY src ./src
+COPY models ./models
+COPY database ./database
 
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements-docker.txt
+EXPOSE 5000
 
-COPY . .
-
-RUN mkdir -p \
-    /app/data \
-    /app/models \
-    /app/logs
-
-EXPOSE 8000
-
-CMD ["python", "-m", "src.pipelines.daily_forecast_pipeline"]
+CMD gunicorn app:app --workers 1 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT
