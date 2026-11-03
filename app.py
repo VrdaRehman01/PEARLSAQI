@@ -191,6 +191,21 @@ RAW_HISTORY_QUERY = """
 
 _live_cache = {"key": None, "raw": None, "features": None}
 
+# Serializes rebuilds so concurrent requests and the background warm-up
+# never build the same features twice.
+_refresh_lock = threading.Lock()
+
+# Serving only needs each city's latest rows. 60 days covers every
+# windowed V4 feature (longest is rolling(30) on a shift(1)); the
+# expanding city statistics are computed over full history separately.
+SERVING_HISTORY_DAYS = 60
+
+EXPANDING_CITY_STATS = {
+    "city_aqi_mean": ("aqi", "mean"),
+    "city_aqi_std": ("aqi", "std"),
+    "city_pm25_mean": ("pm25", "mean"),
+}
+
 
 def _database_key():
     return os.path.getmtime(DATABASE_FILE)
@@ -207,7 +222,40 @@ def load_raw_history():
     return _live_cache["raw"]
 
 
+def build_serving_features(raw):
+    """
+    V4 features for each city's last SERVING_HISTORY_DAYS rows.
+
+    Rebuilding all history is far too slow on small servers, and only
+    recent rows are ever served. Expanding statistics depend on the full
+    history, so they are recomputed from it and replace the values that
+    a recent-only rebuild would get wrong.
+    """
+
+    recent = raw.groupby("city_id", group_keys=False).tail(SERVING_HISTORY_DAYS)
+
+    features = rebuild_features(recent.copy()).drop(
+        columns=list(EXPANDING_CITY_STATS), errors="ignore"
+    )
+
+    grouped = raw.groupby("city_id")
+    stats = raw[["city_id", "date"]].copy()
+
+    for name, (column, how) in EXPANDING_CITY_STATS.items():
+        stats[name] = grouped[column].transform(
+            lambda x, how=how: getattr(x.shift(1).expanding(), how)()
+        )
+
+    return features.merge(stats, on=["city_id", "date"], how="left")
+
+
 def _refresh_live_cache():
+
+    with _refresh_lock:
+        _refresh_live_cache_locked()
+
+
+def _refresh_live_cache_locked():
 
     if not os.path.exists(DATABASE_FILE):
 
@@ -245,7 +293,7 @@ def _refresh_live_cache():
     )
 
     _live_cache["raw"] = raw
-    _live_cache["features"] = rebuild_features(raw)
+    _live_cache["features"] = build_serving_features(raw)
     _live_cache["key"] = key
     _forecast_cache.clear()
 
@@ -1062,7 +1110,18 @@ def health():
     try:
 
         model, feature_columns = load_v4_model()
-        live = load_live_features()
+
+        # Report the cache without building it: hosting health checks
+        # must get an instant answer even while features are warming up.
+        live = _live_cache["features"]
+
+        if live is None:
+            return jsonify({
+                "status": "warming",
+                "model": "XGBoost V4 Final 108",
+                "features": len(feature_columns),
+                "live_feature_store": "building",
+            }), 200
 
         return jsonify({
             "status": "ok",
@@ -1255,7 +1314,8 @@ def trends(city):
 
     try:
 
-        df = load_live_features()
+        # Full daily history (serving features only cover recent days).
+        df = load_raw_history()
 
         city_clean = city.strip().lower()
 
@@ -1284,48 +1344,13 @@ def trends(city):
                 "date"
             )
 
-        trends = []
+        # Vectorized: a row-by-row loop over ~1,400 days is slow enough
+        # on a small server to stall health checks.
+        out = city_df[["date", "aqi", "pm25", "pm10", "no2", "so2", "o3", "co"]].copy()
+        out["date"] = out["date"].dt.strftime("%Y-%m-%d")
+        out = out.astype(object).where(out.notna(), None)
 
-        for _, row in city_df.iterrows():
-
-            trends.append({
-
-                "date": (
-                    row["date"].strftime("%Y-%m-%d")
-                    if "date" in row.index
-                    and pd.notna(row["date"])
-                    else None
-                ),
-
-                "aqi": native(
-                    row.get("aqi")
-                ),
-
-                "pm25": native(
-                    row.get("pm25")
-                ),
-
-                "pm10": native(
-                    row.get("pm10")
-                ),
-
-                "no2": native(
-                    row.get("no2")
-                ),
-
-                "so2": native(
-                    row.get("so2")
-                ),
-
-                "o3": native(
-                    row.get("o3")
-                ),
-
-                "co": native(
-                    row.get("co")
-                ),
-
-            })
+        trends = out.to_dict(orient="records")
 
         return jsonify({
 
@@ -1681,19 +1706,33 @@ def sync_remote_database():
         return False
 
 
+def warm_caches():
+    """Build serving features ahead of requests. Never raises."""
+
+    try:
+        load_v4_model()
+        load_live_features()
+        print("Serving features ready.")
+    except Exception as error:
+        print("WARM-UP ERROR:", error)
+
+
 def _database_sync_loop():
 
     interval = int(os.environ.get("DATABASE_REFRESH_SECONDS", "1800"))
 
     while True:
         sync_remote_database()
+        # Rebuild here, not inside the next user request.
+        warm_caches()
         time.sleep(interval)
 
 
 if os.environ.get("REMOTE_DATABASE_URL", "").strip():
 
     # Without a local copy nothing can be served, so fetch it before
-    # accepting requests; later refreshes run in the background.
+    # accepting requests; later refreshes and the warm-up run in the
+    # background so the server starts answering health checks at once.
     if not os.path.exists(DATABASE_FILE):
         sync_remote_database()
 
