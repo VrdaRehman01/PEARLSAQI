@@ -18471,3 +18471,188 @@ html body .compare-panel p.comparison-summary b {
   font-size: 13px !important;
   line-height: 1.45 !important;
 }
+
+/* =========================================================
+   INSIGHTS ROW — consistent panel structure
+   Each panel: content at the top, its summary box pinned to the
+   bottom, so the three summary boxes line up whatever the AQI.
+   ========================================================= */
+
+html body .dashboard-grid > .breakdown-panel,
+html body .dashboard-grid > .health-panel,
+html body .dashboard-grid > .compare-panel {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.breakdown-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+html body .breakdown-body .donut-wrap {
+  flex: 0 0 45%;
+  width: auto;
+}
+
+html body .breakdown-body .breakdown-list {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+html body .breakdown-panel .breakdown-concern,
+html body .health-panel .health-protection {
+  margin-top: auto !important;
+}
+
+html body .breakdown-panel .breakdown-body,
+html body .health-panel .health-content {
+  margin-bottom: 14px;
+}
+
+html body .compare-panel .quick-comparison {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+html body .compare-panel p.comparison-summary {
+  margin-top: auto !important;
+}
+
+/* Health: summary column wide enough for its one-line message */
+html body .health-panel .health-content {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 16px !important;
+  align-items: start !important;
+}
+
+html body .health-panel .health-main {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  min-width: 0 !important;
+}
+
+html body .health-panel .health-summary {
+  min-width: 0 !important;
+}
+
+html body .health-panel .health-avatar {
+  flex: 0 0 auto !important;
+}
+
+/* =========================================================
+   OVERVIEW — bottom callout and weather strip
+   Same height, text on one line where it fits, equal slots.
+   ========================================================= */
+
+html body .hero .health-callout {
+  min-height: 64px !important;
+  height: auto !important;
+  padding: 10px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  box-sizing: border-box !important;
+}
+
+html body .hero .health-callout span {
+  font-size: 14px !important;
+  line-height: 1.35 !important;
+  text-align: left !important;
+}
+
+html body .hero .weather-strip {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  align-items: center !important;
+  min-height: 64px !important;
+  height: auto !important;
+  padding: 8px 6px !important;
+  box-sizing: border-box !important;
+}
+
+html body .hero .weather-strip > div {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  grid-template-rows: auto auto !important;
+  column-gap: 8px !important;
+  align-items: center !important;
+  padding: 0 10px !important;
+  min-width: 0 !important;
+}
+
+html body .hero .weather-strip > div > :first-child {
+  grid-row: 1 / span 2 !important;
+}
+
+html body .hero .weather-strip strong,
+html body .hero .weather-strip small {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  min-width: 0 !important;
+}
+
+html body .hero .weather-strip strong {
+  font-size: 16px !important;
+  line-height: 1.2 !important;
+}
+
+html body .hero .weather-strip small {
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+}
+
+/* Weather strip wide enough for four labelled slots */
+html body .hero .weather-strip {
+  width: 100% !important;
+  max-width: 600px !important;
+  margin-left: auto !important;
+  margin-right: 0 !important;
+  left: auto !important;
+  /* An older rule shifted the strip 250px right; it now sizes itself. */
+  transform: none !important;
+}
+
+html body .hero .weather-strip > div {
+  padding: 0 12px !important;
+}
+
+/* Callout matches the weather strip's height */
+html body .hero .hero-main .health-callout,
+html body .hero .health-callout {
+  height: 64px !important;
+  min-height: 64px !important;
+}
+
+/* Same row height for every city, so switching cities doesn't jump */
+html body .dashboard-grid > .breakdown-panel,
+html body .dashboard-grid > .health-panel,
+html body .dashboard-grid > .compare-panel {
+  min-height: 345px !important;
+}
+
+/* Health: more room for the status and its one-line advice */
+html body .health-panel .health-content {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) !important;
+}
+
+html body .health-panel .health-avatar {
+  width: 64px !important;
+  height: 64px !important;
+  font-size: 34px !important;
+}
+
+/* Compare's summary sits on the same line as the other summary boxes */
+html body .compare-panel .quick-comparison {
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+html body .compare-panel p.comparison-summary {
+  margin-bottom: 0 !important;
+}

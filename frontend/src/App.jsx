@@ -273,6 +273,48 @@ function mainConcern(data) {
     .sort((a, b) => b.ratio - a.ratio)[0];
 }
 
+// One short line and three bullets per US EPA category. Lengths are kept
+// similar so the Health panel keeps its shape whatever the AQI.
+const HEALTH_GUIDANCE = [
+  [50, "Great day to be outside.", [
+    "Outdoor activity is fine for everyone.",
+    "Open windows to let fresh air in.",
+    "Good time for exercise outdoors.",
+  ]],
+  [100, "Most people can be active outside.", [
+    "Unusually sensitive people: go easy.",
+    "Keep long, hard workouts in check.",
+    "Check again before long activity.",
+  ]],
+  [150, "Sensitive groups should take it easy.", [
+    "Children, elderly, asthma: limit exertion.",
+    "Take breaks during outdoor activity.",
+    "Keep reliever medication at hand.",
+  ]],
+  [200, "Everyone should limit long exertion.", [
+    "Move workouts indoors where possible.",
+    "Sensitive groups: avoid outdoor exertion.",
+    "Wear an N95 mask if you go out.",
+  ]],
+  [300, "Avoid long or intense time outdoors.", [
+    "Everyone: keep outdoor time short.",
+    "Keep windows closed; use a purifier.",
+    "Wear an N95 mask outdoors.",
+  ]],
+  [Infinity, "Stay indoors and keep activity low.", [
+    "Avoid all outdoor physical activity.",
+    "Seal windows; run an air purifier.",
+    "Seek care for breathing difficulty.",
+  ]],
+];
+
+function healthGuidance(aqi) {
+  const [, summary, actions] =
+    HEALTH_GUIDANCE.find(([limit]) => aqi <= limit);
+
+  return { summary, actions };
+}
+
 // Practical advice that scales with AQI (US EPA categories).
 function protectionAdvice(aqi) {
   if (aqi <= 50) {
@@ -4231,9 +4273,7 @@ const forecastChart = useMemo(() => {
 
               <span>
 
-                {selectedAQI > 150
-                  ? "Sensitive groups should reduce prolonged outdoor exertion."
-                  : "Air quality is currently suitable for most people."}
+                {healthGuidance(selectedAQI).summary}
 
               </span>
 
@@ -4362,17 +4402,13 @@ const forecastChart = useMemo(() => {
 
 
               <div>
-
                 <Cloud />
-
                 <strong>
-                  Live
+                  {String(selectedData?.live?.observed_at ?? "").slice(11, 16) || "—"}
                 </strong>
-
                 <small>
-                  Weather
+                  Updated
                 </small>
-
               </div>
 
             </div>
@@ -5034,6 +5070,8 @@ scrollWheelZoom={false}                className="leaflet-map"
             className="breakdown-panel"
           >
 
+            <div className="breakdown-body">
+
             <div className="donut-wrap">
   <div className="donut">
     <div className="donut-inner">
@@ -5100,6 +5138,8 @@ scrollWheelZoom={false}                className="leaflet-map"
 
 </div>
 
+            </div>
+
             {(() => {
               const concern = mainConcern(selectedData);
               if (!concern) return null;
@@ -5161,11 +5201,7 @@ scrollWheelZoom={false}                className="leaflet-map"
       </div>
 
       <p className="health-recommendation">
-        {selectedAQI > 150
-          ? "Sensitive groups should limit prolonged outdoor exposure. Consider reducing strenuous activity outdoors."
-          : selectedAQI > 100
-          ? "Sensitive individuals should consider reducing prolonged outdoor exertion."
-          : "Most people can continue normal outdoor activities."}
+        {healthGuidance(selectedAQI).summary}
       </p>
 
     </div>
@@ -5181,32 +5217,12 @@ scrollWheelZoom={false}                className="leaflet-map"
 
     <div className="health-actions">
 
-      <div className="health-action">
-        <span>•</span>
-        <p>
-          {selectedAQI > 100
-            ? "Reduce prolonged outdoor exertion."
-            : "Normal outdoor activity is generally fine."}
-        </p>
-      </div>
-
-      <div className="health-action">
-        <span>•</span>
-        <p>
-          {selectedAQI > 100
-            ? "Keep outdoor exposure shorter when possible."
-            : "Stay hydrated and monitor air quality."}
-        </p>
-      </div>
-
-      <div className="health-action">
-        <span>•</span>
-        <p>
-          {selectedAQI > 150
-            ? "Sensitive groups should take extra precautions."
-            : "Check AQI again before prolonged outdoor activity."}
-        </p>
-      </div>
+      {healthGuidance(selectedAQI).actions.map((action) => (
+        <div className="health-action" key={action}>
+          <span>•</span>
+          <p>{action}</p>
+        </div>
+      ))}
 
     </div>
 
