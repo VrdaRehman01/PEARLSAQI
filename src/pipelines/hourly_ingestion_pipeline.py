@@ -1,5 +1,6 @@
 ﻿import os
 import sys
+import time
 import requests
 import duckdb
 from datetime import datetime, timedelta, timezone
@@ -138,6 +139,30 @@ def is_future_hour(timestamp):
     return datetime.fromisoformat(timestamp) > now
 
 
+REQUEST_ATTEMPTS = 4
+
+
+def get_json(url, params):
+    """
+    GET with retries. Large backfills (HOURLY_PAST_DAYS up to 92) can
+    time out on Open-Meteo, so retry with a growing wait and a longer
+    timeout before giving up on a city.
+    """
+
+    for attempt in range(1, REQUEST_ATTEMPTS + 1):
+        try:
+            response = requests.get(url, params=params, timeout=120)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as error:
+            if attempt == REQUEST_ATTEMPTS:
+                raise
+            wait = 10 * attempt
+            print(f"       Request failed ({type(error).__name__}), retrying in {wait}s "
+                  f"[{attempt}/{REQUEST_ATTEMPTS}]")
+            time.sleep(wait)
+
+
 # ============================================================
 # DATABASE
 # ============================================================
@@ -235,15 +260,7 @@ def fetch_air_quality(city):
         "forecast_days": 1,
     }
 
-    response = requests.get(
-        OPEN_METEO_AIR_URL,
-        params=params,
-        timeout=60,
-    )
-
-    response.raise_for_status()
-
-    return response.json()
+    return get_json(OPEN_METEO_AIR_URL, params)
 
 
 # ============================================================
@@ -270,15 +287,7 @@ def fetch_weather(city):
         "forecast_days": 1,
     }
 
-    response = requests.get(
-        OPEN_METEO_WEATHER_URL,
-        params=params,
-        timeout=60,
-    )
-
-    response.raise_for_status()
-
-    return response.json()
+    return get_json(OPEN_METEO_WEATHER_URL, params)
 
 
 # ============================================================
@@ -522,6 +531,7 @@ def main():
 
         total_aqi = 0
         total_weather = 0
+        failed_cities = []
 
         for index, city in enumerate(
             CITIES,
@@ -571,6 +581,8 @@ def main():
 
             except Exception as e:
 
+                failed_cities.append(city["city_name"])
+
                 print(
                     f"       FAILED: "
                     f"{type(e).__name__}: {e}"
@@ -599,6 +611,13 @@ def main():
                 timezone.utc
             ).isoformat(),
         )
+
+        # Rows for the cities that worked are already committed. Exit
+        # non-zero so the workflow retries instead of silently leaving
+        # some cities stale.
+        if failed_cities:
+            print("FAILED CITIES        :", ", ".join(failed_cities))
+            sys.exit(1)
 
     finally:
 
