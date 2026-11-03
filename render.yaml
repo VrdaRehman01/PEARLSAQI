@@ -29,6 +29,12 @@ services:
         value: https://raw.githubusercontent.com/VrdaRehman01/PEARLSAQI/main/database/aqi.duckdb
       - key: DATABASE_REFRESH_SECONDS
         value: "1800"
+      # The free plan has a fraction of one CPU: extra math-library
+      # threads only compete with the request threads.
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
       # Optional ground-station readings; set the value in the Render dashboard.
       - key: AQICN_TOKEN
         sync: false
