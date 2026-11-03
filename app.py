@@ -12,7 +12,15 @@ import joblib
 import numpy as np
 import pandas as pd
 import requests
+import socket
+import urllib3.util.connection
 from dotenv import load_dotenv
+
+# Use IPv4 for outbound calls. Some hosts (Render's free plan among them)
+# have no working IPv6 route, and urllib3 would try each IPv6 address of
+# a host until it times out before falling back to IPv4. Every service
+# this app calls is reachable over IPv4.
+urllib3.util.connection.allowed_gai_family = lambda: socket.AF_INET
 
 from flask import Flask, jsonify, request, send_from_directory
 from src.config import CITIES
@@ -1771,10 +1779,14 @@ def _database_sync_loop():
 
     interval = int(os.environ.get("DATABASE_REFRESH_SECONDS", "1800"))
 
+    # Serve from the database shipped with the deploy first, so startup
+    # never waits on the network; then check for a newer copy.
+    warm_caches()
+
     while True:
-        sync_remote_database()
-        # Rebuild here, not inside the next user request.
-        warm_caches()
+        if sync_remote_database():
+            # Rebuild here, not inside the next user request.
+            warm_caches()
         time.sleep(interval)
 
 
