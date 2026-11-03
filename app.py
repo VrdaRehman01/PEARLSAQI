@@ -5,7 +5,7 @@ import threading
 import time
 import traceback
 import json
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 import duckdb
 import joblib
@@ -713,7 +713,7 @@ HOURLY_TTL_SECONDS = 1800
 MAX_STATION_DISTANCE_KM = 40
 
 _live_lock = threading.Lock()
-_live_state = {"at": 0.0, "data": {}}
+_live_state = {"at": 0.0, "data": {}, "source": None, "error": None}
 _hourly_cache = {}
 _city_locations = {}
 
@@ -884,23 +884,70 @@ def _fetch_station(token, lat, lon):
     }
 
 
+# Outbound calls run here so each can be abandoned after a hard deadline.
+# requests' own timeout does not cover every stall (e.g. slow DNS), and a
+# hung call must never hold a request thread or a lock indefinitely.
+_outbound = ThreadPoolExecutor(max_workers=8)
+OUTBOUND_DEADLINE_SECONDS = 20
+
+
+def call_with_deadline(function, *args):
+    """Run function(*args); raise TimeoutError after the deadline."""
+
+    future = _outbound.submit(function, *args)
+
+    try:
+        return future.result(timeout=OUTBOUND_DEADLINE_SECONDS)
+    except FutureTimeout as error:
+        raise TimeoutError(
+            f"{getattr(function, '__name__', 'call')} took longer than "
+            f"{OUTBOUND_DEADLINE_SECONDS}s"
+        ) from error
+
+
+def _fetch_stations(token, locations):
+
+    futures = {
+        name: _outbound.submit(_fetch_station, token, lat, lon)
+        for name, (_, lat, lon) in locations.items()
+    }
+    deadline = time.time() + OUTBOUND_DEADLINE_SECONDS
+    stations = {}
+
+    for name, future in futures.items():
+        try:
+            stations[name] = future.result(timeout=max(0.0, deadline - time.time()))
+        except FutureTimeout:
+            stations[name] = None
+
+    return stations
+
+
 def live_conditions():
     """
     Current-hour conditions for every city, refreshed at most every
-    LIVE_TTL_SECONDS. Never raises: an empty dict means "no live data".
+    LIVE_TTL_SECONDS. Never raises and never blocks behind another
+    refresh: an empty dict means "no live data".
     """
 
-    with _live_lock:
+    if time.time() - _live_state["at"] < LIVE_TTL_SECONDS:
+        return _live_state["data"]
 
-        if time.time() - _live_state["at"] < LIVE_TTL_SECONDS:
-            return _live_state["data"]
+    # Only one request refreshes; the rest use the last known data.
+    if not _live_lock.acquire(blocking=False):
+        return _live_state["data"]
 
+    try:
         locations = city_locations()
+        error_message = None
 
         try:
-            data = _fetch_open_meteo_current(locations)
-        except (requests.RequestException, ValueError, KeyError) as error:
-            print("LIVE OPEN-METEO ERROR:", error)
+            data = call_with_deadline(_fetch_open_meteo_current, locations)
+            source = "open-meteo"
+        except (requests.RequestException, ValueError, KeyError, TimeoutError) as error:
+            error_message = f"{type(error).__name__}: {error}"
+            print("LIVE OPEN-METEO ERROR:", error_message)
+            source = "database"
             try:
                 data = _latest_hour_from_database(locations)
             except duckdb.Error as db_error:
@@ -910,22 +957,21 @@ def live_conditions():
         token = os.environ.get("AQICN_TOKEN", "").strip()
 
         if token:
-            with ThreadPoolExecutor(max_workers=6) as pool:
-                stations = dict(zip(
-                    locations,
-                    pool.map(
-                        lambda loc: _fetch_station(token, loc[1], loc[2]),
-                        locations.values(),
-                    ),
-                ))
-
-            for name, station in stations.items():
+            for name, station in _fetch_stations(token, locations).items():
                 if station:
                     data.setdefault(name, {})["station"] = station
 
-        _live_state.update(at=time.time(), data=data)
+        _live_state.update(
+            at=time.time(),
+            data=data,
+            source=source,
+            error=error_message,
+        )
 
         return data
+
+    finally:
+        _live_lock.release()
 
 
 def live_for_city(city):
@@ -957,7 +1003,7 @@ def hourly_outlook(city):
     if cached and time.time() - cached[0] < HOURLY_TTL_SECONDS:
         return cached[1]
 
-    response = requests.get(
+    response = call_with_deadline(lambda: requests.get(
         OPEN_METEO_AIR_URL,
         params={
             "latitude": location[1],
@@ -968,7 +1014,7 @@ def hourly_outlook(city):
             "timezone": "Asia/Karachi",
         },
         timeout=15,
-    )
+    ))
     response.raise_for_status()
 
     hourly = response.json().get("hourly", {})
@@ -1125,6 +1171,10 @@ def health():
 
         return jsonify({
             "status": "ok",
+            # Where live conditions came from on the last refresh, and
+            # why the live source failed if it did (deployment debugging).
+            "live_data_source": _live_state["source"],
+            "live_data_error": _live_state["error"],
             "model": "XGBoost V4 Final 108",
             "features": len(feature_columns),
             "model_file": "xgboost_v4_final_108.pkl",
@@ -1299,7 +1349,7 @@ def hourly(city):
         points = hourly_outlook(city)
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
-    except requests.RequestException as e:
+    except (requests.RequestException, TimeoutError) as e:
         return jsonify({"error": f"Hourly forecast unavailable: {e}"}), 503
 
     return jsonify({
