@@ -17,7 +17,7 @@
 
 ---
 
-## 🌫️ What is PEARLSAQI?
+## What is PEARLSAQI?
 
 **PEARLSAQI** is an end-to-end Air Quality Index (AQI) prediction and forecasting platform built for major cities across Pakistan.
 
@@ -64,7 +64,7 @@ The multi-city design allows the same forecasting platform to provide city-speci
 
 ---
 
-# 📚 Table of Contents
+# Table of Contents
 
 - [What is PEARLSAQI?](#-what-is-pearlsaqi)
 - [Cities Covered](#-cities-covered)
@@ -97,7 +97,7 @@ The multi-city design allows the same forecasting platform to provide city-speci
 
 ---
 
-# 🎯 Project Objectives
+# Project Objectives
 
 The project was designed around the following objectives:
 
@@ -114,16 +114,16 @@ The project was designed around the following objectives:
 
 ---
 
-# ✨ Core Capabilities
+# Core Capabilities
 
-### 📡 Environmental Data
+### Environmental Data
 - AQI data ingestion
 - Weather observations
 - Future weather forecasts
 - Pollutant information
 - Historical data processing
 
-### 🧠 Machine Learning
+### Machine Learning
 - V4 feature engineering
 - ~108 predictive features
 - XGBoost regression
@@ -131,7 +131,7 @@ The project was designed around the following objectives:
 - Model artifact storage
 - Model versioning
 
-### 🔮 Forecasting
+### Forecasting
 - 24-hour AQI forecast
 - 48-hour AQI forecast
 - 72-hour AQI forecast
@@ -139,13 +139,13 @@ The project was designed around the following objectives:
 - Future-weather-aware inference
 - Historical forecast replay/evaluation
 
-### 🔍 Explainability
+### Explainability
 - SHAP analysis
 - LIME analysis
 - Feature importance
 - Local prediction contributions
 
-### 🖥️ Application
+### Application
 - Flask REST backend
 - React + Vite frontend
 - Interactive Pakistan map
@@ -156,7 +156,7 @@ The project was designed around the following objectives:
 - Explainability views
 - AQI alerts
 
-### ⚙️ Operations
+### Operations
 - GitHub Actions automation
 - DuckDB database
 - Parquet feature store
@@ -166,7 +166,7 @@ The project was designed around the following objectives:
 
 ---
 
-# 🏗️ System Architecture
+# System Architecture
 
 ```mermaid
 flowchart TD
@@ -214,7 +214,7 @@ flowchart TD
 
 ---
 
-# 🔄 Data Pipeline
+# Data Pipeline
 
 PEARLSAQI follows a complete environmental-data-to-forecast workflow.
 
@@ -293,7 +293,7 @@ This allows the system to measure:
 
 ---
 
-# 🌦️ Data Sources
+# Data Sources
 
 ## Open-Meteo
 
@@ -315,7 +315,7 @@ Using a consistent source simplifies the data pipeline and makes the project eas
 
 ---
 
-# 🗄️ Data Storage
+# Data Storage
 
 ## DuckDB
 
@@ -360,7 +360,7 @@ The final architecture does **not** depend on Hopsworks or n8n.
 
 ---
 
-# 🧬 Feature Engineering
+# Feature Engineering
 
 Feature engineering is one of the most important components of PEARLSAQI.
 
@@ -426,7 +426,7 @@ Calendar information helps the model learn recurring patterns:
 
 ---
 
-## ⭐ Additional V4 Feature
+## Additional V4 Feature
 
 One of the important engineered features evaluated during V4 development was:
 
@@ -438,7 +438,7 @@ This feature captures the relationship between PM2.5 pollution and the broader p
 
 ---
 
-# 🤖 Machine Learning
+# Machine Learning
 
 ## XGBoost
 
@@ -480,7 +480,7 @@ The fixed random seed improves reproducibility.
 
 ---
 
-# 📊 Model Evaluation
+# Model Evaluation
 
 A V4 candidate model using approximately **108 predictive features** achieved the following evaluation results during development:
 
@@ -505,7 +505,7 @@ models/
 
 ---
 
-# 🔮 Forecasting Strategy
+# Forecasting Strategy
 
 PEARLSAQI provides three primary user-facing horizons:
 
@@ -568,7 +568,7 @@ The user-facing output contains the three requested horizons without exposing an
 
 ---
 
-# 🌤️ Future Weather Integration
+# Future Weather Integration
 
 Future weather is retrieved from the `weather_forecasts` table.
 
@@ -591,7 +591,7 @@ The forecast-origin constraint is especially important during historical replay 
 
 ---
 
-# 📈 Forecast Evaluation
+# Forecast Evaluation
 
 Forecasts are compared against the actual AQI for the corresponding forecast date.
 
@@ -621,7 +621,7 @@ This structure enables horizon-specific backtesting and operational monitoring.
 
 ---
 
-# 🔍 Explainable AI
+# Explainable AI
 
 A major goal of PEARLSAQI is to make predictions interpretable rather than treating the model as a black box.
 
@@ -672,7 +672,7 @@ The system is designed so explainability failures do not invalidate an otherwise
 
 ---
 
-# 🖥️ Backend & API
+# Backend & API
 
 The backend is implemented with **Flask**.
 
@@ -691,7 +691,7 @@ The backend separates data/ML logic from the frontend application.
 
 ---
 
-# 🎨 Frontend Dashboard
+# Frontend Dashboard
 
 The frontend is built with:
 
@@ -706,7 +706,7 @@ The dashboard is designed to make complex model output understandable to a norma
 
 ## Dashboard Components
 
-### 🇵🇰 Pakistan Map
+###  Pakistan Map
 
 The interface visualizes supported cities geographically.
 
@@ -752,13 +752,13 @@ Model explanations are surfaced through the dashboard so users can investigate w
 
 ---
 
-# 📸 Dashboard Screenshots
+# Dashboard Screenshots
 
 The following screenshots showcase the main user-facing interfaces of PEARLSAQI.
 
 > **Screenshot assets:** All screenshots are stored in the repository's `screenshots/` folder. The filenames below match the project assets exactly.
 
-## 🏠 Overview Dashboard
+## Overview Dashboard
 
 <p align="center">
   <img src="screenshots/dashboard.png" alt="PEARLSAQI Overview Dashboard" width="100%">
@@ -768,7 +768,7 @@ The main overview brings together the selected city's live AQI, pollutant readin
 
 ---
 
-## 🏙️ Cities Dashboard
+## Cities Dashboard
 
 <p align="center">
   <img src="screenshots/cities.png" alt="PEARLSAQI Cities Dashboard" width="100%">
@@ -778,7 +778,7 @@ The Cities interface provides a dedicated view of monitored Pakistani locations,
 
 ---
 
-## 🔮 AQI Forecast
+## AQI Forecast
 
 <p align="center">
   <img src="screenshots/forecast.png" alt="PEARLSAQI AQI Forecast" width="100%">
@@ -788,7 +788,7 @@ The AQI Forecast interface presents the production model's 24-hour, 48-hour, and
 
 ---
 
-## 🇵🇰 Pakistan AQI Map
+## Pakistan AQI Map
 
 <p align="center">
   <img src="screenshots/pak%20map.png" alt="PEARLSAQI Pakistan AQI Map" width="100%">
@@ -798,7 +798,7 @@ The Pakistan AQI view provides a geographic representation of live air-quality c
 
 ---
 
-## 🧪 Custom Scenario Simulator
+## Custom Scenario Simulator
 
 <p align="center">
   <img src="screenshots/custom%20simulator.png" alt="PEARLSAQI Custom Scenario Simulator" width="100%">
@@ -808,7 +808,7 @@ The Custom Scenario Simulator lets users adjust pollution and weather variables 
 
 ---
 
-## 🔍 Model Explainability
+## Model Explainability
 
 <p align="center">
   <img src="screenshots/explainability.png" alt="PEARLSAQI Model Explainability" width="100%">
@@ -818,7 +818,7 @@ The Model Explainability interface exposes feature-level model contributions, in
 
 ---
 
-## 📊 Air Quality Insights
+## Air Quality Insights
 
 <p align="center">
   <img src="screenshots/insights.png" alt="PEARLSAQI Air Quality Insights" width="100%">
@@ -828,16 +828,16 @@ The Air Quality Insights interface combines pollution breakdowns, health guidanc
 
 ---
 
-# 🎥 Project Demo
+## Project Demo
 
 See PEARLSAQI in action:
 
-[▶️ Watch the full dashboard demonstration](screenshots/Project%20Demo.mp4)
+[ Watch the full dashboard demonstration](screenshots/Project%20Demo.mp4)
 
 The demo showcases the complete PEARLSAQI workflow, including live AQI monitoring, city exploration, Pakistan-wide AQI mapping, 24/48/72-hour forecasting, air-quality insights, custom scenario simulation, and SHAP-based model explainability.
 ---
 
-# ⚙️ Automation
+#  Automation
 
 GitHub Actions is the final automation layer used by the project.
 
@@ -853,7 +853,7 @@ The final architecture does **not** rely on n8n.
 
 ---
 
-# 📡 Monitoring
+# Monitoring
 
 PEARLSAQI includes monitoring and evaluation components for:
 
@@ -883,7 +883,7 @@ Model evaluation
 
 ---
 
-# 🚨 AQI Alerts
+# AQI Alerts
 
 The platform includes AQI alert functionality intended to communicate potentially hazardous AQI conditions.
 
@@ -891,7 +891,7 @@ Alerts can be integrated with the forecasting/monitoring layer to make the platf
 
 ---
 
-# 📁 Project Structure
+# Project Structure
 
 The repository is organized around separate data, ML, application, and operational responsibilities.
 
@@ -965,7 +965,7 @@ aqi-predictor-v4/
 
 ---
 
-# 🧰 Technology Stack
+# Technology Stack
 
 | Layer | Technology |
 |---|---|
@@ -987,7 +987,7 @@ aqi-predictor-v4/
 
 ---
 
-# 🚀 Running Locally
+# Running Locally
 
 ## 1. Clone the repository
 
@@ -1020,7 +1020,7 @@ pip install -r requirements.txt
 
 ---
 
-# 🖥️ Start the Backend
+# Start the Backend
 
 From the project root, activate the virtual environment and run the Flask backend using the project's configured backend entry point.
 
@@ -1032,7 +1032,7 @@ http://localhost:5000
 
 ---
 
-# 🌐 Start the Frontend
+# Start the Frontend
 
 Move into the frontend directory:
 
@@ -1060,7 +1060,7 @@ http://localhost:5173
 
 ---
 
-# 🐳 Docker
+# Docker
 
 The repository includes:
 
@@ -1072,7 +1072,7 @@ Docker provides a consistent environment for running the application and support
 
 ---
 
-# 🧪 Validation & Testing
+# Validation & Testing
 
 PEARLSAQI validates the system at multiple levels.
 
@@ -1112,7 +1112,7 @@ PEARLSAQI validates the system at multiple levels.
 
 ---
 
-# 🧠 Design Decisions
+# Design Decisions
 
 ## Why DuckDB?
 
@@ -1184,7 +1184,7 @@ SHAP and LIME provide an additional interpretability layer around the machine-le
 
 ---
 
-# 🔐 Reproducibility
+# Reproducibility
 
 The project emphasizes reproducibility through:
 
@@ -1200,7 +1200,7 @@ The project emphasizes reproducibility through:
 
 ---
 
-# ⚠️ Limitations
+# Limitations
 
 The current system has several practical limitations:
 
@@ -1215,7 +1215,7 @@ The current system has several practical limitations:
 
 ---
 
-# 🚀 Future Improvements
+# Future Improvements
 
 Possible future development includes:
 
@@ -1235,34 +1235,34 @@ Possible future development includes:
 
 ---
 
-# 📌 Project Status
+# Project Status
 
 PEARLSAQI currently represents a complete integrated prototype/production-oriented forecasting platform with:
 
 ```text
-✅ 12 Pakistani cities
-✅ Environmental data ingestion
-✅ DuckDB analytical storage
-✅ Parquet feature store
-✅ V4 feature engineering
-✅ ~108 predictive features
-✅ XGBoost forecasting
-✅ 24h / 48h / 72h forecasting
-✅ Future weather integration
-✅ Forecast evaluation
-✅ SHAP / LIME explainability
-✅ Flask backend
-✅ React + Vite frontend
-✅ Pakistan map visualization
-✅ Monitoring
-✅ AQI alerts
-✅ GitHub Actions automation
-✅ Docker support
+ 12 Pakistani cities
+ Environmental data ingestion
+ DuckDB analytical storage
+ Parquet feature store
+ V4 feature engineering
+ ~108 predictive features
+ XGBoost forecasting
+ 24h / 48h / 72h forecasting
+ Future weather integration
+ Forecast evaluation
+ SHAP / LIME explainability
+ Flask backend
+ React + Vite frontend
+ Pakistan map visualization
+ Monitoring
+ AQI alerts
+ GitHub Actions automation
+ Docker support
 ```
 
 ---
 
-# 🏁 Conclusion
+# Conclusion
 
 PEARLSAQI brings together multiple disciplines into one end-to-end environmental intelligence platform:
 
@@ -1292,8 +1292,8 @@ Its current architecture uses **Open-Meteo, DuckDB, Parquet, XGBoost, SHAP/LIME,
 
 ---
 
-## 📜 License
+##  License
 
 This project is intended for academic, research, and development purposes.
 
-See the repository for the applicable project/license terms.
+ee the repository for the applicable project/license terms.
