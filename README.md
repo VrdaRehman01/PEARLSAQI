@@ -1,4 +1,4 @@
-# 🇵🇰 PEARLSAQI — Pakistan AQI Prediction & Forecasting Platform
+# PEARLSAQI — Pakistan AQI Prediction & Forecasting Platform
 
 <p align="center">
   <strong>Live air quality, 3-day AQI forecasts and explainable machine learning for 12 Pakistani cities</strong>
