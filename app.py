@@ -991,10 +991,71 @@ def live_for_city(city):
     return {}
 
 
+def _outlook_window():
+
+    now = pd.Timestamp.now(tz="Asia/Karachi").tz_localize(None).floor("h")
+
+    return now, now - pd.Timedelta(hours=12), now + pd.Timedelta(hours=36)
+
+
+def _hourly_outlook_from_database(city_id):
+    """
+    The same outlook from the database: stored observations for the
+    past hours and the forecast the hourly pipeline saved for the next
+    ones. Used when Open-Meteo is unreachable (it rate-limits shared
+    cloud hosts such as Render).
+    """
+
+    now, start, end = _outlook_window()
+
+    with duckdb.connect(DATABASE_FILE, read_only=True) as conn:
+
+        observed = conn.execute(
+            """
+            SELECT timestamp, aqi, pm25 FROM aqi_hourly
+            WHERE city_id = ? AND timestamp BETWEEN ? AND ?
+            ORDER BY timestamp
+            """,
+            [city_id, start.to_pydatetime(), now.to_pydatetime()],
+        ).fetchall()
+
+        try:
+            forecast = conn.execute(
+                """
+                SELECT timestamp, aqi, pm25 FROM aqi_hourly_forecast
+                WHERE city_id = ? AND timestamp > ? AND timestamp <= ?
+                ORDER BY timestamp
+                """,
+                [city_id, now.to_pydatetime(), end.to_pydatetime()],
+            ).fetchall()
+        except duckdb.CatalogException:
+            # Databases from before the forecast table existed.
+            forecast = []
+
+    points = [
+        {
+            "time": stamp.strftime("%Y-%m-%dT%H:%M"),
+            "aqi": aqi,
+            "pm25": pm25,
+            "is_forecast": stamp > now.to_pydatetime(),
+        }
+        for stamp, aqi, pm25 in observed + forecast
+        if aqi is not None
+    ]
+
+    if not points:
+        raise RuntimeError("No stored hourly data for this city.")
+
+    return points
+
+
 def hourly_outlook(city):
     """
     Hourly US AQI for the last 12 hours and the next 36 hours from
-    Open-Meteo (CAMS forecast), for the "next hours" chart.
+    Open-Meteo (CAMS forecast), for the "next hours" chart. Falls back
+    to the database when Open-Meteo can't be reached.
+
+    Returns (points, source).
     """
 
     location = next(
@@ -1009,7 +1070,22 @@ def hourly_outlook(city):
     cached = _hourly_cache.get(location[0])
 
     if cached and time.time() - cached[0] < HOURLY_TTL_SECONDS:
-        return cached[1]
+        return cached[1], cached[2]
+
+    try:
+        points = _hourly_outlook_from_open_meteo(location)
+        source = "Open-Meteo (CAMS) hourly forecast"
+    except (requests.RequestException, TimeoutError, ValueError) as error:
+        print("HOURLY OPEN-METEO ERROR:", error)
+        points = _hourly_outlook_from_database(location[0])
+        source = "CAMS forecast saved by the hourly pipeline"
+
+    _hourly_cache[location[0]] = (time.time(), points, source)
+
+    return points, source
+
+
+def _hourly_outlook_from_open_meteo(location):
 
     response = call_with_deadline(lambda: requests.get(
         OPEN_METEO_AIR_URL,
@@ -1027,8 +1103,7 @@ def hourly_outlook(city):
 
     hourly = response.json().get("hourly", {})
 
-    now = pd.Timestamp.now(tz="Asia/Karachi").tz_localize(None).floor("h")
-    start, end = now - pd.Timedelta(hours=12), now + pd.Timedelta(hours=36)
+    now, start, end = _outlook_window()
 
     points = [
         {
@@ -1044,8 +1119,6 @@ def hourly_outlook(city):
         )
         if aqi is not None and start <= pd.Timestamp(stamp) <= end
     ]
-
-    _hourly_cache[location[0]] = (time.time(), points)
 
     return points
 
@@ -1354,15 +1427,16 @@ def predict(city):
 def hourly(city):
 
     try:
-        points = hourly_outlook(city)
+        points, source = hourly_outlook(city)
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
-    except (requests.RequestException, TimeoutError) as e:
-        return jsonify({"error": f"Hourly forecast unavailable: {e}"}), 503
+    except (requests.RequestException, TimeoutError, RuntimeError, duckdb.Error) as e:
+        print("HOURLY OUTLOOK ERROR:", e)
+        return jsonify({"error": "The hourly forecast is temporarily unavailable."}), 503
 
     return jsonify({
         "city": city,
-        "source": "Open-Meteo (CAMS) hourly US AQI",
+        "source": source,
         "hours": points,
     }), 200
 

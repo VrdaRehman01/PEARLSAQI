@@ -2168,7 +2168,7 @@ function bestWindow(hours) {
 }
 
 function HourlyOutlook({ city }) {
-  const [state, setState] = useState({ city: null, hours: [], error: "" });
+  const [state, setState] = useState({ city: null, hours: [], source: "", error: "" });
 
   useEffect(() => {
     if (!city) return undefined;
@@ -2182,10 +2182,10 @@ function HourlyOutlook({ city }) {
         return payload;
       })
       .then((payload) => {
-        if (!cancelled) setState({ city, hours: payload.hours ?? [], error: "" });
+        if (!cancelled) setState({ city, hours: payload.hours ?? [], source: payload.source ?? "", error: "" });
       })
       .catch((error) => {
-        if (!cancelled) setState({ city, hours: [], error: error.message });
+        if (!cancelled) setState({ city, hours: [], source: "", error: error.message });
       });
 
     return () => {
@@ -2205,14 +2205,14 @@ function HourlyOutlook({ city }) {
       <div className="hourly-outlook-head">
         <div>
           <h3>Hourly Outlook</h3>
-          <p>Past 12 hours and next 36 hours · CAMS hourly forecast</p>
+          <p>Past 12 hours and next 36 hours · {state.source || "CAMS hourly forecast"}</p>
         </div>
       </div>
 
       {loading && <p className="hourly-outlook-empty">Loading hourly forecast…</p>}
 
       {!loading && state.error && (
-        <p className="hourly-outlook-empty">Hourly forecast unavailable: {state.error}</p>
+        <p className="hourly-outlook-empty">{state.error}</p>
       )}
 
       {!loading && !state.error && hours.length > 0 && (
