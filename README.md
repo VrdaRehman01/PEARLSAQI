@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="screenshots/dashboard.png" alt="PEARLSAQI dashboard showing Lahore's live AQI gauge, pollutant cards and city overview" width="100%">
+  <img src="docs/screenshots/dashboard.png" alt="PEARLSAQI dashboard showing Lahore's live AQI gauge, pollutant cards and city overview" width="100%">
 </p>
 
 ---
@@ -71,7 +71,7 @@ The overview shows the selected city's current-hour AQI on a gauge that runs fro
 Every monitored city with its landmark, current AQI and category. Click a card to load that city.
 
 <p align="center">
-  <img src="screenshots/cities.png" alt="Grid of 12 Pakistani city cards with landmark photos and AQI values" width="100%">
+  <img src="docs/screenshots/cities.png" alt="Grid of 12 Pakistani city cards with landmark photos and AQI values" width="100%">
 </p>
 
 ### Pakistan AQI Map
@@ -79,7 +79,7 @@ Every monitored city with its landmark, current AQI and category. Click a card t
 Each city marker is coloured by its US EPA category and labelled with its AQI, so regional patterns such as Punjab's winter smog are visible at a glance.
 
 <p align="center">
-  <img src="screenshots/map.png" alt="Map of Pakistan with colour-coded AQI markers for each city" width="100%">
+  <img src="docs/screenshots/map.png" alt="Map of Pakistan with colour-coded AQI markers for each city" width="100%">
 </p>
 
 ### AQI Forecast & Hourly Outlook
@@ -87,7 +87,7 @@ Each city marker is coloured by its US EPA category and labelled with its AQI, s
 The model's predicted daily average AQI for the next three days, followed by an hourly chart covering the last 12 and next 36 hours of CAMS data. The hourly outlook highlights the cleanest 3-hour daytime window, the worst upcoming hour, and how many hours exceed 150.
 
 <p align="center">
-  <img src="screenshots/forecast.png" alt="Three forecast cards and an hourly AQI outlook chart with best time outside" width="100%">
+  <img src="docs/screenshots/forecast.png" alt="Three forecast cards and an hourly AQI outlook chart with best time outside" width="100%">
 </p>
 
 ### Air Quality Insights
@@ -97,13 +97,13 @@ The model's predicted daily average AQI for the next three days, followed by an 
 - **Compare Cities:** a side-by-side comparison of any cities you choose.
 
 <p align="center">
-  <img src="screenshots/insights.png" alt="Pollution breakdown, health recommendation and city comparison panels" width="100%">
+  <img src="docs/screenshots/insights.png" alt="Pollution breakdown, health recommendation and city comparison panels" width="100%">
 </p>
 
 A city directory and a live ranking of all 12 cities follow; click any row to open that city.
 
 <p align="center">
-  <img src="screenshots/ranking.png" alt="City directory and live AQI ranking of all monitored cities" width="100%">
+  <img src="docs/screenshots/ranking.png" alt="City directory and live AQI ranking of all monitored cities" width="100%">
 </p>
 
 ### Scenario Simulator
@@ -111,7 +111,7 @@ A city directory and a live ranking of all 12 cities follow; click any row to op
 Start from the exact daily values the model used, adjust any of the nine inputs (or pick a preset such as *Heavy Smog* or *After Rain*), and run the model. The result shows the baseline vs scenario AQI, the change, which inputs you changed, a 3-day scenario forecast, and the SHAP features that drove the difference.
 
 <p align="center">
-  <img src="screenshots/scenario-simulator.png" alt="Scenario simulator with Heavy Smog preset applied to Lahore and its SHAP explanation" width="100%">
+  <img src="docs/screenshots/scenario-simulator.png" alt="Scenario simulator with Heavy Smog preset applied to Lahore and its SHAP explanation" width="100%">
 </p>
 
 ### Model Explainability
@@ -119,7 +119,7 @@ Start from the exact daily values the model used, adjust any of the nine inputs 
 SHAP contributions for each of the three forecast days, paged through all 108 features. Red bars push the prediction up, green bars pull it down.
 
 <p align="center">
-  <img src="screenshots/explainability.png" alt="SHAP feature contributions for forecast days 1 to 3" width="100%">
+  <img src="docs/screenshots/explainability.png" alt="SHAP feature contributions for forecast days 1 to 3" width="100%">
 </p>
 
 ### How it works
@@ -127,10 +127,10 @@ SHAP contributions for each of the three forecast days, paged through all 108 fe
 **Learn More** in the footer opens an explanation of what the numbers mean, why they can differ from official sources, and the model's measured accuracy.
 
 <p align="center">
-  <img src="screenshots/about.png" alt="How PEARLSAQI works dialog" width="70%">
+  <img src="docs/screenshots/about.png" alt="How PEARLSAQI works dialog" width="70%">
 </p>
 
-🎥 A recording of an earlier version of the dashboard is in [`screenshots/Project Demo.mp4`](screenshots/Project%20Demo.mp4).
+🎥 A recording of an earlier version of the dashboard is in [`docs/screenshots/Project Demo.mp4`](docs/screenshots/Project%20Demo.mp4).
 
 ---
 
@@ -410,13 +410,14 @@ PEARLSAQI/
 │   ├── evaluation/                # forecast evaluation, model drift monitor
 │   └── maintenance/               # database table setup and cleanup
 ├── notebooks/eda.ipynb            # exploratory data analysis
-├── screenshots/                   # README images
+├── docs/
+│   ├── PEARLSAQI-Report.pdf       # project report
+│   └── screenshots/               # README images and demo video
 ├── .github/workflows/             # hourly and daily pipelines
 ├── requirements.txt               # full stack: pipelines, training, notebooks
 ├── requirements-api.txt           # API only (Render and Docker)
 ├── render.yaml                    # Render deployment
 ├── Dockerfile, docker-compose.yml # API container
-├── PEARLSQAI-REPORT.pdf           # project report
 └── .env.example
 ```
 
