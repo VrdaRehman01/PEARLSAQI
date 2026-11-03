@@ -2982,7 +2982,7 @@ const [loading, setLoading] =
 
 useEffect(() => {
   fetch(
-    "https://raw.githubusercontent.com/glynnbird/countriesgeojson/master/pakistan.geojson"
+    "/pakistan.geojson"
   )
     .then((res) => {
       if (!res.ok) {

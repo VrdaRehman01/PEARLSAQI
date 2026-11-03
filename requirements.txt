@@ -9,8 +9,7 @@ tensorflow
 joblib
 huggingface_hub
 
-# Web dashboard (Phase 5)
-streamlit
+# Web API
 flask
 flask-cors
 
