@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <strong>🌐 Live dashboard: <a href="https://pearlsaqi.vercel.app">pearlsaqi.vercel.app</a></strong>
+  <strong> Live dashboard: <a href="https://pearlsaqi.vercel.app">pearlsaqi.vercel.app</a></strong>
 </p>
 
 <p align="center">
