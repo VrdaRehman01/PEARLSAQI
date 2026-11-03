@@ -3390,9 +3390,14 @@ useEffect(() => {
       );
 
 
+      // The hosted API sleeps when idle and takes up to a minute to
+      // wake, so say so and retry soon instead of waiting for the next
+      // 60-second refresh.
       setApiError(
-        "Unable to connect to the PEARLSAQI Flask API. Check that the backend is running on port 5000."
+        "Waking up the PEARLSAQI server — this can take up to a minute after a quiet period. Retrying automatically…"
       );
+
+      setTimeout(() => loadDashboard(true), 10000);
 
     } finally {
 
