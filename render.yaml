@@ -15,9 +15,12 @@ services:
     buildFilter:
       # The hourly pipeline commits database/aqi.duckdb every hour. The
       # API downloads it itself (REMOTE_DATABASE_URL), so those commits
-      # must not trigger a redeploy.
+      # must not trigger a redeploy; neither should docs or workflow edits.
       ignoredPaths:
         - database/**
+        - README.md
+        - LICENSE
+        - .github/**
         - frontend/**
         - docs/**
         - notebooks/**
